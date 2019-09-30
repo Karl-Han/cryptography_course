@@ -16,4 +16,4 @@ test:all
 
 .PHONY:clean
 clean:
-	rm *.o $(TARGET)
+	rm *.o $(TARGET) *.h.gch
