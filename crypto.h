@@ -3,18 +3,15 @@
 
 #include <stdbool.h>
 
-typedef unsigned char uc;
-typedef unsigned char* uc_p;
-
 // All below assume a > b
 
-uc multiply(uc a, uc b);
+short multiply(short a, short b);
 
 // Get the highest bit position of num
-uc highest_bit(uc num);
+short highest_bit(short num);
 
 // Return a // b
-bool divide(uc_p a, uc_p b, uc_p quotient, uc_p remainder);
+bool divide(short* a, short* b, short* quotient, short* remainder);
 
 void gf28_mod(short* num);
 

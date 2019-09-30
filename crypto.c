@@ -1,9 +1,9 @@
 #include "crypto.h"
 
-// typedef unsigned char uc;
-// typedef unsigned char* uc_p;
+// typedef unsigned char short;
+// typedef unsigned char* short*;
 
-void gf28_mod(short* num) { *num = (*num + 256 % 256); }
+void gf28_mod(short* num) { *num = (*num + 283 % 283); }
 
 void swap(short* n1, short* n2) {
     *n1 = *n1 ^ *n2;
@@ -11,8 +11,8 @@ void swap(short* n1, short* n2) {
     *n1 = *n1 ^ *n2;
 }
 
-uc multiply(uc a, uc b) {
-    uc res = 0;
+short multiply(short a, short b) {
+    short res = 0;
     while (a && b) {
         if (b & 1) {
             res ^= a;
@@ -25,11 +25,11 @@ uc multiply(uc a, uc b) {
         }
         b >>= 1;
     }
-    return res;
+    return res % 256;
 }
 
-uc highest_bit(uc num) {
-    uc counter = 0;
+short highest_bit(short num) {
+    short counter = 0;
     while (num) {
         counter++;
         num >>= 1;
@@ -40,16 +40,16 @@ uc highest_bit(uc num) {
 // All below assume a > b
 
 // Return whether it is right
-bool divide(uc_p a, uc_p b, uc_p quotient, uc_p remainder) {
-    uc q, r;
+bool divide(short* a, short* b, short* quotient, short* remainder) {
+    short q, r;
     q = 0;
     r = *a;
-    uc b_bits = highest_bit(*b);
-    uc s = (1 << (b_bits - 1)) - 1;
-    uc hb = highest_bit(r);
+    short b_bits = highest_bit(*b);
+    short s = (1 << (b_bits - 1)) - 1;
+    short hb = highest_bit(r);
     while (hb >= b_bits) {
         hb = highest_bit(r);
-        uc b_shift = (*b) << (hb - b_bits);
+        short b_shift = (*b) << (hb - b_bits);
         r ^= b_shift;
         q |= (1 << (hb - b_bits));
         // q <<= (hb - b_bits);
@@ -89,5 +89,7 @@ short egcd(short* a, short* b, short* s, short* t) {
     }
     gf28_mod(&s1);
     gf28_mod(&s2);
+    *s = s1;
+    *t = s2;
     return *a;
 }
