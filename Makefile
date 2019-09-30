@@ -11,6 +11,9 @@ main: main.o crypto.o
 
 all: main
 
+test:all
+	./main
+
 .PHONY:clean
 clean:
 	rm *.o $(TARGET)
