@@ -84,15 +84,15 @@ short egcd(short* a, short* b, short* s, short* t) {
         divide(*a, *b, &q, &r);
         s1 ^= multiply(t1, q);
         s2 ^= multiply(t2, q);
-        gf28_mod(&s1);
-        gf28_mod(&s2);
+        // gf28_mod(&s1);
+        // gf28_mod(&s2);
         *a = *b;
         *b = r;
         swap(&s1, &t1);
         swap(&s2, &t2);
     }
-    gf28_mod(&s1);
-    gf28_mod(&s2);
+    // gf28_mod(&s1);
+    // gf28_mod(&s2);
     *s = s1;
     *t = s2;
     return *a;

@@ -48,6 +48,7 @@ void multiply_test() {
             assert(gmul(i, j) == multiply(i, j));
         }
     }
+    printf("Pass multiply_test\n");
 }
 
 void highest_bit_test() { assert(highest_bit(0x80) == 8); }
@@ -60,6 +61,7 @@ void divide_test() {
     assert(bl);
     assert(q == 6);
     assert(r == 13);
+    printf("Pass divide_test\n");
 }
 
 void egcd_test() {
@@ -68,14 +70,16 @@ void egcd_test() {
         // printf("i = %x, and inverse is %x\n", i, ins);
         assert(multiply(ins, i) == 1);
     }
+    printf("Pass egcd_test\n");
 }
 
 void s_box_test() {
     for (short i = 0; i < 256; i++) {
         short ins = s_box(inverse_gf28(i));
-        printf("%d's ins = %02x, sbox[i] = %02x\n", i, ins, sbox[i]);
+        // printf("%d's ins = %02x, sbox[i] = %02x\n", i, ins, sbox[i]);
         assert(ins == sbox[i]);
     }
+    printf("Pass s_box_test\n");
 }
 
 unsigned char sub_byte(unsigned char c) { return s_box(inverse_gf28(c)); }
