@@ -146,7 +146,7 @@ impl fmt::Display for PrivateKey {
         write!(
             f,
             "PrivateKey: [{}\nd : {}\ne : {}\nn : {}]",
-            self.phi_n, self.d, self.e, self.n
+            self.p_q_pair, self.d, self.e, self.n
         )
     }
 }
@@ -160,6 +160,7 @@ struct PrivateKey {
     n: BigInt,
 }
 
+/*
 impl From<Vec<u8>> for PrivateKey {
     fn from(arr: Vec<u8>) -> PrivateKey {
         let phi_n_arr = &arr[0..4];
@@ -179,12 +180,13 @@ impl From<Vec<u8>> for PrivateKey {
 
         PrivateKey{
             phi_n,
-            e, 
-            d, 
+            e,
+            d,
             n,
         }
     }
 }
+*/
 
 impl PrivateKey {
     pub fn new(pair: PrimePair, e: BigInt) -> Self {
@@ -217,8 +219,8 @@ impl PrivateKey {
         // r is e now
         let n = pair.product();
         return PrivateKey {
-            //p_q_pair: pair,
-            phi_n : pair.product()
+            p_q_pair: pair,
+            //phi_n : pair.product()
             e,
             d: s,
             n,
