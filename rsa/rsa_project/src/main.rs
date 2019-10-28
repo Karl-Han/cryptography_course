@@ -1,15 +1,100 @@
+extern crate clap;
 extern crate num_bigint as bigint;
 extern crate num_traits;
 extern crate rand;
 
 use bigint::*;
-use core::ops::BitAnd;
-use rand::distributions::{uniform::UniformSampler, Distribution};
+use clap::{App, Arg, SubCommand};
+use num_traits::cast::ToPrimitive;
+use primality_test::*;
+use rand::distributions::uniform::UniformSampler;
 use rand::RngCore;
+use std::fmt;
+use std::fs::File;
+use std::io::{self, prelude::*};
+use std::str::FromStr;
+use std::string::{FromUtf8Error, String};
 
+pub mod primality_test {
+    use bigint::*;
+    use core::ops::BitAnd;
+    use rand::distributions::uniform::UniformSampler;
+    fn pass_miller_rabin(num: &BigInt, modulus: &BigInt) -> bool {
+        let phi = modulus.clone() - 1u32;
+        let mut odd: BigInt = phi.clone();
+
+        while odd.clone().bitand(&num_traits::one()) == num_traits::one() {
+            odd = odd / 2u32;
+        }
+
+        let mut base = num.modpow(&odd, &modulus);
+
+        while phi >= odd {
+            if base == num_traits::One::one() || base == num.clone() - 1u32 {
+                return true;
+            }
+            base = base.modpow(&BigInt::from(2u32), &modulus);
+            odd = odd * 2u32;
+        }
+
+        return false;
+    }
+
+    pub fn miller_rabin(num: &BigInt, times: usize) -> bool {
+        if num.bitand(BigInt::from(1u32)) != BigInt::from(1u32) {
+            return false;
+        }
+        let mut rng = rand::thread_rng();
+
+        let big_int_gen = UniformBigInt::new(num_traits::One::one(), num - 1u32);
+
+        for _ in 0..times {
+            if !pass_miller_rabin(&big_int_gen.sample(&mut rng), &num) {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+pub fn generate_with_head(head: u64, size: usize) -> BigInt {
+    let low = BigInt::from(head) << (size - 32);
+    let high = BigInt::from(1u32) << size;
+    //println!("low = {} with bits {}", low, low.bits());
+    //println!("high = {} with bits {}", high, high.bits());
+
+    let sampler: UniformBigInt;
+    if low < high {
+        sampler = UniformSampler::new(low, high);
+    } else {
+        sampler = UniformSampler::new(high, low);
+    }
+    let mut rng = rand::thread_rng();
+    let mut sample: BigInt;
+
+    loop {
+        //sample = gen.sample(&mut rng);
+        sample = sampler.sample(&mut rng);
+        //println!("{} {}", sample, sample.bits());
+
+        if sample.bits() == size && miller_rabin(&sample, 50) {
+            //println!("{} {}", sample, sample.bits());
+            break;
+        }
+    }
+
+    return sample;
+}
+
+impl fmt::Display for PrimePair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "p : {}\nq : {}", self.p, self.q)
+    }
+}
+#[derive(Clone)]
 struct PrimePair {
-    p: BigUint,
-    q: BigUint,
+    p: BigInt,
+    q: BigInt,
 }
 
 impl PrimePair {
@@ -24,179 +109,511 @@ impl PrimePair {
             let res: u64 = phead * qhead;
 
             if res >= 1 << 63 {
-                println!("phead = {}", phead);
-                println!("qhead = {}", qhead);
-                println!("res= {}", res);
+                //println!("phead = {}", phead);
+                //println!("qhead = {}", qhead);
+                //println!("res= {}", res);
                 break;
             }
         }
 
-        let plow = BigUint::from(phead) << (psize - 32);
-        let phigh = BigUint::from(1u32) << psize;
-        println!("plow = {} with bits {}", plow, plow.bits());
-        println!("phigh = {} with bits {}", phigh, phigh.bits());
-
-        let sampler: UniformBigUint;
-        if plow < phigh {
-            sampler = UniformSampler::new(plow, phigh);
-        } else {
-            sampler = UniformSampler::new(phigh, plow);
-        }
-        let mut rng = rand::thread_rng();
-        let mut psample: BigUint;
-
-        loop {
-            //sample = gen.sample(&mut rng);
-            psample = sampler.sample(&mut rng);
-            //println!("{} {}", sample, sample.bits());
-
-            if psample.bits() == psize && miller_rabin(&psample) {
-                println!("{} {}", psample, psample.bits());
-                break;
-            }
-        }
-
-        let qlow = BigUint::from(qhead) << (qsize - 32);
-        let qhigh = BigUint::from(1u32) << qsize;
-        println!("qlow = {} with bits {}", qlow, qlow.bits());
-        println!("qhigh = {} with bits {}", qhigh, qhigh.bits());
-        let sampler: UniformBigUint;
-        let mut qsample: BigUint;
-        if qlow < qhigh {
-            sampler = UniformSampler::new(qlow, qhigh);
-        } else {
-            sampler = UniformSampler::new(qhigh, qlow);
-        }
-
-        loop {
-            //sample = gen.sample(&mut rng);
-            qsample = sampler.sample(&mut rng);
-            //println!("{} {}", sample, sample.bits());
-
-            if qsample.bits() == psize && miller_rabin(&qsample) {
-                println!("{} {}", qsample, qsample.bits());
-                break;
-            }
-        }
+        let psample = generate_with_head(phead, psize);
+        let qsample = generate_with_head(qhead, qsize);
 
         PrimePair {
             p: psample,
             q: qsample,
         }
     }
-    pub fn product(&self) -> BigUint {
+    pub fn product(&self) -> BigInt {
         return self.p.clone() * self.q.clone();
+    }
+    pub fn phi_p(&self) -> BigInt {
+        return (self.p.clone() - 1u32) * (self.q.clone() - 1u32);
+    }
+    pub fn p(&self) -> BigInt {
+        return self.p.clone();
+    }
+    pub fn q(&self) -> BigInt {
+        return self.q.clone();
+    }
+    pub fn from_p_q(p: BigInt, q: BigInt) -> Self {
+        PrimePair { p, q }
     }
 }
 
-struct PrivateKey {
-    p: BigUint,
-    q: BigUint,
-    e: BigUint,
-    d: BigUint,
-    n: BigUint,
+impl fmt::Display for PrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "PrivateKey: [{}\nd : {}\ne : {}\nn : {}]",
+            self.phi_n, self.d, self.e, self.n
+        )
+    }
 }
 
-struct PublicKey {
-    e: BigUint,
-    n: BigUint,
+#[derive(Clone)]
+struct PrivateKey {
+    p_q_pair: PrimePair,
+    //phi_n: BigInt,
+    e: BigInt,
+    d: BigInt,
+    n: BigInt,
+}
+
+impl From<Vec<u8>> for PrivateKey {
+    fn from(arr: Vec<u8>) -> PrivateKey {
+        let phi_n_arr = &arr[0..4];
+        let e_arr = &arr[0..4];
+        let d_arr = &arr[5..8];
+        let n_arr = &arr[8..12];
+
+        let phi_n_length = BigUint::from_bytes_le(&phi_n_arr).to_usize().unwrap();
+        let e_length = BigUint::from_bytes_le(&e_arr).to_usize().unwrap();
+        let d_length = BigUint::from_bytes_le(&d_arr).to_usize().unwrap();
+        let n_length = BigUint::from_bytes_le(&n_arr).to_usize().unwrap();
+
+        let phi_n = BigUint::from_bytes_le(&arr[12..(12 + phi_n_length)]).to_usize().unwrap();
+        let e= BigUint::from_bytes_le(&arr[(12 + phi_n_length)..(12 + phi_n_length + e_length)]).to_usize().unwrap();
+        let d= BigUint::from_bytes_le(&arr[(12 + phi_n_length + e_length)..(12 + phi_n_length + e_length + d_length)).to_usize().unwrap();
+        let n= BigUint::from_bytes_le(&arr[(12 + phi_n_length + e_length + d_length)..(12 + phi_n_length + e_length + d_length + n_length)).to_usize().unwrap();
+
+        PrivateKey{
+            phi_n,
+            e, 
+            d, 
+            n,
+        }
+    }
 }
 
 impl PrivateKey {
-    // `size` is the size of modulus
-    pub fn new(size: usize) {}
+    pub fn new(pair: PrimePair, e: BigInt) -> Self {
+        // e is the one chosen to be part of PU
+        // phi p is bigger than e
+        // so it becomes phi_p * r + e * s = 1
+        let mut a = e.clone();
+        let mut b = pair.phi_p();
+        let mut r: BigInt = num_traits::one();
+        let mut s: BigInt = num_traits::zero();
+
+        if a < b {
+            swap(&mut a, &mut b);
+        }
+        let res = egcd(&mut a, &mut b, &mut r, &mut s).unwrap();
+
+        //println!("a = {}\nr = {}\nb = {}", a, r, b);
+        assert_eq!(res, BigInt::from(1u32));
+
+        s = s + a.clone();
+        s = s % a.clone();
+        //println!(
+        //    "phi p = {}\nres = {}",
+        //    pair.phi_p(),
+        //    (b.clone() * s.clone()) % pair.phi_p()
+        //);
+
+        assert_eq!((b.clone() * s.clone()) % pair.phi_p(), BigInt::from(1u32));
+
+        // r is e now
+        let n = pair.product();
+        return PrivateKey {
+            //p_q_pair: pair,
+            phi_n : pair.product()
+            e,
+            d: s,
+            n,
+        };
+    }
+    pub fn default_new(pair: PrimePair) -> Self {
+        return Self::new(pair, BigInt::from(65537u32));
+    }
+    pub fn new_with_key_size(size: usize) -> Self {
+        let p = size / 2;
+        let q = size - p;
+        return Self::default_new(PrimePair::new(p, q));
+    }
+    pub fn e(&self) -> BigInt {
+        return self.e.clone();
+    }
+    pub fn product(&self) -> BigInt {
+        return self.p_q_pair.product();
+    }
+    pub fn decrypt(&self, c: Cipher) -> Plaintext {
+        let res = if c.fragments.bits() <= 1024 {
+            c.fragments.modpow(&self.d, &self.n)
+        } else {
+            println!("{} with {} bits", c, c.fragments.bits());
+            panic!("Cipher too long");
+        };
+
+        return Plaintext { fragments: res };
+    }
+    pub fn from_biguint(p: BigInt, q: BigInt) -> Self {
+        return Self::default_new(PrimePair::from_p_q(p, q));
+    }
 }
 
-fn pass_miller_rabin(num: &BigUint, modulus: &BigUint) -> bool {
-    let phi = modulus.clone() - 1u32;
-    let mut odd: BigUint = phi.clone();
-
-    while odd.clone().bitand(&num_traits::one()) == num_traits::one() {
-        odd = odd / 2u32;
-    }
-
-    let mut base = num.modpow(&odd, &modulus);
-
-    while phi >= odd {
-        if base == num_traits::One::one() || base == num.clone() - 1u32 {
-            return true;
-        }
-        base = base.modpow(&BigUint::from(2u32), &modulus);
-        odd = odd * 2u32;
-    }
-
-    return false;
+pub fn swap(a: &mut BigInt, b: &mut BigInt) {
+    let temp = a.clone();
+    *a = b.clone();
+    *b = temp;
 }
 
-fn miller_rabin(num: &BigUint) -> bool {
-    if num.bitand(BigUint::from(1u32)) != BigUint::from(1u32) {
-        return false;
+pub fn egcd(a: &mut BigInt, b: &mut BigInt, r: &mut BigInt, s: &mut BigInt) -> Option<BigInt> {
+    let flag: bool = a.clone() < b.clone();
+    if flag {
+        swap(a, b);
     }
-    let mut rng = rand::thread_rng();
 
-    let big_int_gen = UniformBigUint::new(num_traits::One::one(), num - 1u32);
+    let mut temp_a: BigInt = a.clone();
+    let mut temp_b: BigInt = b.clone();
 
-    for _ in 0..50 {
-        if !pass_miller_rabin(&big_int_gen.sample(&mut rng), &num) {
-            return false;
-        }
+    let mut r1: BigInt = num_traits::one();
+    let mut r2: BigInt = num_traits::zero();
+    let mut s1: BigInt = num_traits::zero();
+    let mut s2: BigInt = num_traits::one();
+
+    while temp_b.clone() != num_traits::zero() {
+        // when temp_b == zero, a gets what we need
+        let q = temp_a.clone() / temp_b.clone();
+        temp_a = temp_a.clone() % temp_b.clone();
+
+        r1 = r1 - q.clone() * s1.clone();
+        r2 = r2 - q.clone() * s2.clone();
+
+        swap(&mut r1, &mut s1);
+        swap(&mut r2, &mut s2);
+        swap(&mut temp_a, &mut temp_b);
     }
-    return true;
+
+    *r = r1.clone();
+    *s = r2.clone();
+
+    //println!("{} * {} + {} * {} = {}", a, r1, b, r2, temp_a);
+    return Some(temp_a);
 }
 
-fn generate_prime(size: usize) -> BigUint {
-    let mut rng = rand::thread_rng();
+struct Cipher {
+    // fixed length per element
+    pub fragments: BigInt,
+}
 
-    let mut sample: BigUint;
-    let gen = RandomBits::new(size);
+#[derive(Debug)]
+struct Plaintext {
+    pub fragments: BigInt,
+}
 
-    let low = BigUint::from(1u32) << (size - 1);
-    let high = BigUint::from(1u32) << size;
-    let sampler: UniformBigUint = UniformSampler::new(low, high);
-
-    loop {
-        //sample = gen.sample(&mut rng);
-        sample = sampler.sample(&mut rng);
-        //println!("{} {}", sample, sample.bits());
-
-        if sample.bits() == size && miller_rabin(&sample) {
-            println!("{}", sample);
-            return sample;
+impl Plaintext {
+    pub fn new(s: &str) -> Self {
+        Plaintext {
+            fragments: BigInt::from_bytes_le(Sign::Plus, s.as_bytes()),
         }
+    }
+    pub fn into_string(&self) -> Result<String, FromUtf8Error> {
+        let (_, bytes) = self.fragments.to_bytes_le();
+        return String::from_utf8(bytes.to_vec());
+    }
+}
+
+impl fmt::Display for Plaintext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.fragments)
+    }
+}
+
+impl fmt::Display for Cipher {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.fragments)
+    }
+}
+
+#[derive(Debug)]
+struct PublicKey {
+    e: BigInt,
+    n: BigInt,
+}
+
+impl From<Vec<u8>> for PublicKey {
+    fn from(arr: Vec<u8>) -> PublicKey {
+        let key_length_arr = &arr[0..4];
+        let key_length = BigUint::from_bytes_le(key_length_arr).to_usize().unwrap();
+        let n_arr = &arr[4..key_length];
+        let e_arr = &arr[key_length..];
+
+        let n = BigUint::from_bytes_le(n_arr).to_bigint().unwrap();
+        let e = BigUint::from_bytes_le(e_arr).to_bigint().unwrap();
+        PublicKey { e, n }
+    }
+}
+
+impl fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "PublicKey:[e = {}\nn = {}]", self.e, self.n)
+    }
+}
+
+impl PublicKey {
+    pub fn encrypt(&self, m: Plaintext) -> Cipher {
+        let res = if m.fragments.bits() < 1024 {
+            m.fragments.modpow(&self.e, &self.n)
+        } else {
+            println!("{} with {} bits", m, m.fragments.bits());
+            panic!("Plaintext too long");
+        };
+
+        return Cipher { fragments: res };
+    }
+    pub fn from_u8_slice(arr: &mut [u8], key_size: &usize) -> Self {
+        let n_arr = &arr[0..*key_size];
+        let e_arr = &arr[*key_size..];
+
+        let e = BigInt::from_bytes_le(Sign::Plus, e_arr);
+        let n = BigInt::from_bytes_le(Sign::Plus, n_arr);
+
+        PublicKey { e, n }
+    }
+
+    pub fn into_vec(&self) -> Vec<u8> {
+        let e_arr = self.e.to_biguint().unwrap().to_bytes_le();
+        let n_arr = self.n.to_biguint().unwrap().to_bytes_le();
+
+        let mut vec = n_arr.to_vec();
+        vec.extend(e_arr.to_vec().iter());
+        return vec;
+    }
+}
+
+impl From<PrivateKey> for PublicKey {
+    fn from(pr: PrivateKey) -> Self {
+        return PublicKey {
+            e: pr.e(),
+            n: pr.product(),
+        };
+    }
+}
+
+fn argument_parse() -> io::Result<()> {
+    let matches = App::new("RSA in Rust")
+        .subcommand(
+            SubCommand::with_name("encrypt")
+                .arg(
+                    Arg::with_name("filename")
+                        .required(true)
+                        .short("f")
+                        .long("filename")
+                        .takes_value(true)
+                        .help("File contains plaintext to encrypt"),
+                )
+                .arg(
+                    Arg::with_name("output_filename")
+                        .short("o")
+                        .long("output")
+                        .takes_value(true)
+                        .help("Specify the output filename."),
+                )
+                .arg(
+                    Arg::with_name("key_size")
+                        .short("l")
+                        .long("key-length")
+                        .takes_value(true)
+                        .help("Specify the length of key"),
+                )
+                .arg(
+                    Arg::with_name("key_file")
+                        .short("k")
+                        .long("key-file")
+                        .takes_value(true)
+                        .help("Specify the file contains public key"),
+                )
+                .arg(
+                    Arg::with_name("new")
+                        .short("n")
+                        .long("new")
+                        .help("Use new key pair"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("decrypt")
+                .arg(Arg::with_name("sign").short("s").long("sign"))
+                .arg(
+                    Arg::with_name("filename")
+                        .required(true)
+                        .short("f")
+                        .long("filename")
+                        .takes_value(true)
+                        .help("File contains cipher to decrypt"),
+                )
+                .arg(
+                    Arg::with_name("output_filename")
+                        .short("o")
+                        .long("output")
+                        .takes_value(true)
+                        .help("Specify the output filename."),
+                )
+                .arg(
+                    Arg::with_name("key_file")
+                        .required(true)
+                        .short("k")
+                        .long("key-file")
+                        .takes_value(true)
+                        .help("Specify the file contains public key"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("sign")
+                .arg(
+                    Arg::with_name("filename")
+                        .required(true)
+                        .short("f")
+                        .long("file")
+                        .takes_value(true)
+                        .help("Specify the file to be signed"),
+                )
+                .arg(
+                    Arg::with_name("output_filename")
+                        .short("o")
+                        .long("output")
+                        .takes_value(true)
+                        .help("Specify the output filename."),
+                )
+                .arg(
+                    Arg::with_name("pr_key_file")
+                        .required(true)
+                        .short("p")
+                        .long("private-key")
+                        .takes_value(true)
+                        .help("Specify the private key file"),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("authorize")
+                .arg(
+                    Arg::with_name("filename")
+                        .required(true)
+                        .short("f")
+                        .long("file")
+                        .takes_value(true)
+                        .help("Specify the file to be authorize"),
+                )
+                .arg(
+                    Arg::with_name("origin_file")
+                        .short("o")
+                        .long("origin")
+                        .takes_value(true)
+                        .help("Specify the original filename."),
+                )
+                .arg(
+                    Arg::with_name("pu_key_file")
+                        .required(true)
+                        .short("p")
+                        .long("public-key")
+                        .takes_value(true)
+                        .help("Specify the public key file"),
+                ),
+        )
+        .get_matches();
+
+    match matches.subcommand() {
+        ("encrypt", Some(sub_matches)) => {
+            let filename = sub_matches.value_of("filename").unwrap();
+            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
+            let key_size = sub_matches.value_of("key_size").unwrap();
+
+            let mut file = File::open(filename)?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)?;
+
+            if sub_matches.is_present("new") {
+                println!("Generating new key pair...");
+                let private_key = PrivateKey::new_with_key_size(
+                    FromStr::from_str(key_size).expect(&format!("Invalid key size : {}", key_size)),
+                );
+
+                println!("{}", private_key);
+                let pu: PublicKey = private_key.into();
+                let cipher = pu.encrypt(Plaintext::new(&content));
+                println!("Cipher = {}", cipher);
+            } else {
+                let key_file = sub_matches
+                    .value_of("key_file")
+                    .expect("No key size and public key file.");
+                let mut pu_content = [0u8; 2048];
+                let key_length = File::open(key_file)?
+                    .read(&mut pu_content)
+                    .expect("Error while reading key file in ENCRYPT");
+                let pu = PublicKey::from_u8_slice(
+                    &mut pu_content,
+                    &FromStr::from_str(key_size).expect("Unable to parse key size in ENCRYPT"),
+                );
+                let cipher = pu.encrypt(Plaintext::new(&content));
+                println!("Cipher = {}", cipher);
+            }
+            Ok(())
+        }
+        ("decrypt", Some(sub_matches)) => {
+            let filename = sub_matches.value_of("filename").unwrap();
+            let key_size = sub_matches.value_of("key_size").unwrap();
+            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
+            Ok(())
+        }
+        ("sign", Some(sub_matches)) => {
+            let filename = sub_matches.value_of("filename").unwrap();
+            let pr_key_file = sub_matches.value_of("pr_key_file").unwrap();
+            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
+            Ok(())
+        }
+        ("authorize", Some(sub_matches)) => {
+            let filename = sub_matches.value_of("filename").unwrap();
+            let pu_key_file = sub_matches.value_of("pu_key_file").unwrap();
+            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
+            Ok(())
+        }
+        _ => Ok(()),
     }
 }
 
 fn main() {
-    //let mut rng = rand::thread_rng();
+    argument_parse();
+}
 
-    // let low: RandomBits = RandomBits::new(1023);
-    //let num: BigUint = Distribution::sample(&low, &mut rng);
-    //println!("{}", num);
+#[cfg(test)]
+mod test {
+    use super::*;
+    use bigint::*;
+    #[test]
+    fn egcd_test() -> Result<(), bigint::ParseBigIntError> {
+        let mut a = BigInt::from_str("12380339579751423114926012726846665859109128160473940858920447764947665998051717659753451209511089125471702436331586838284243106985194623174305037109060833")?;
 
-    //let mut n: BigUint;
+        let mut b = BigInt::from_str("12693668861142308203949909107307076109568333642561164188438129182387558715809963097589529080910832736763413534205399930018866988526805104438993153026665709")?;
 
-    //loop {
-    //    let p = generate_prime(512);
-    //    let q = generate_prime(512);
+        let mut r = num_traits::one();
+        let mut s = num_traits::zero();
+        let gcd = egcd(&mut a, &mut b, &mut r, &mut s).unwrap();
+        println!("{} * {} + {} * {} = {}", a, r, b, s, gcd);
 
-    //    println!("p = {}", p);
-    //    println!("q = {}", q);
+        // a * r = 1 (mod b)
+        assert_eq!(a.clone() * r.clone() % b.clone(), BigInt::from(1u32));
+        Ok(())
+    }
+    #[test]
+    fn encrypt_decrypt_test() -> Result<(), FromUtf8Error> {
+        let pr = PrivateKey::new_with_key_size(1024);
+        let pu: PublicKey = pr.clone().into();
+        println!("{}", pr);
+        println!("{}", pu);
 
-    //    n = p * q;
+        let s = "Hello World";
+        println!("{:?}", s.as_bytes());
+        let cipher = pu.encrypt(Plaintext::new(s));
+        println!("cipher = {}", cipher);
 
-    //    if n.bits() == 1024 {
-    //        break;
-    //    }
-    //}
-
-    //println!("n = {}", n);
-
-    //let num: BigUint = UniformBigUint::new(low, high);
-
-    //println!("{}", num.bits());
-
-    let pair = PrimePair::new(512, 512);
-
-    let n = pair.product();
-    println!("{} with {} bits", n, n.bits());
+        let m = pr.decrypt(cipher);
+        println!(
+            "plain = {:?}\n{}",
+            m.fragments.to_bytes_le(),
+            m.into_string()?
+        );
+        assert_eq!(s, m.into_string()?);
+        Ok(())
+    }
 }
