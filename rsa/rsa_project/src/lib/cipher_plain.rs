@@ -18,6 +18,11 @@ impl Cipher {
 
         Cipher { fragments: num }
     }
+    pub fn new_from_u8(arr: &[u8]) -> Cipher {
+        Cipher {
+            fragments: BigInt::from_bytes_le(Sign::Plus, &arr),
+        }
+    }
 }
 
 impl fmt::Display for Cipher {

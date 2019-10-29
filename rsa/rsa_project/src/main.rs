@@ -102,6 +102,7 @@ fn argument_parse() -> io::Result<()> {
         .subcommand(
             SubCommand::with_name("decrypt")
                 .arg(Arg::with_name("sign").short("s").long("sign"))
+                .arg(Arg::with_name("utf-8").long("utf-8"))
                 .arg(
                     Arg::with_name("d-key")
                         .short("d")
@@ -129,6 +130,13 @@ fn argument_parse() -> io::Result<()> {
                         .long("filename")
                         .takes_value(true)
                         .help("File contains cipher to decrypt"),
+                )
+                .arg(
+                    Arg::with_name("output")
+                        .short("o")
+                        .long("output")
+                        .takes_value(true)
+                        .help("Redirect cipher to output file"),
                 ),
         )
         .get_matches();
@@ -140,7 +148,6 @@ fn argument_parse() -> io::Result<()> {
                 let key_size = sub_matches
                     .value_of("key_size")
                     .expect("Please use `-l` to specify the key size");
-                dbg!(&key_size);
                 let pr = PrivateKey::new_with_key_size(
                     FromStr::from_str(key_size).expect("Unable to parse key_size in ENCRYPT"),
                 );
@@ -205,6 +212,7 @@ fn argument_parse() -> io::Result<()> {
             }
 
             let cipher = pu.encrypt(Plaintext::new(&buf));
+            // redirect cipher to file
             if let Some(output) = sub_matches.value_of("output") {
                 let mut file = File::create(output)?;
                 let (_, s) = cipher.fragments.to_bytes_le();
@@ -229,25 +237,66 @@ fn argument_parse() -> io::Result<()> {
 
             let d = BigInt::from_bytes_le(Sign::Plus, &d_vec);
             let n = BigInt::from_bytes_le(Sign::Plus, &n_vec);
+            let pr = PrivateKey::new_with_dn(d, n);
 
             if sub_matches.is_present("sign") {
-                let filename = sub_matches.value_of("filename").unwrap();
-                let pr = PrivateKey::new_with_dn(d, n);
+                // if it is sign, it needs to be in the file
+                let filename = sub_matches
+                    .value_of("filename")
+                    .expect("Can only sign a file");
 
                 let signature = pr.sign(filename);
+                if let Some(output) = sub_matches.value_of("output") {
+                    let mut file = File::create(output)?;
+                    let (_, s) = signature.to_bytes_le();
+
+                    file.write(&s).expect("Write file failed");
+                    return Ok(());
+                }
                 println!("{}", signature);
                 return Ok(());
             }
-            let cipher = sub_matches.value_of("cipher").unwrap();
-            let pr = PrivateKey::new_with_dn(d, n);
 
-            let plaintext = pr.decrypt(Cipher::new(cipher));
+            let plaintext: Plaintext;
+
+            if let Some(cipher) = sub_matches.value_of("cipher") {
+                // cipher is in the text
+                plaintext = pr.decrypt(Cipher::new(cipher));
+            } else {
+                let filename = sub_matches
+                    .value_of("filename")
+                    .expect("No cipher provided by `-c` or filename");
+                let mut file = File::open(filename)?;
+                let mut buf = [0u8; 512];
+
+                file.read(&mut buf)?;
+
+                plaintext = pr.decrypt(Cipher::new_from_u8(&buf));
+            }
+
+            if sub_matches.is_present("utf-8") {
+                let s = plaintext
+                    .into_string()
+                    .expect("Unable to parse plaintext to string");
+                if let Some(output) = sub_matches.value_of("output") {
+                    let mut file = File::create(output)?;
+                    let (_, s) = plaintext.fragments.to_bytes_le();
+
+                    file.write(&s).expect("Write file failed");
+                    return Ok(());
+                }
+                println!("{}", s);
+            }
+
+            if let Some(output) = sub_matches.value_of("output") {
+                let mut file = File::create(output)?;
+                let (_, s) = plaintext.fragments.to_bytes_le();
+
+                file.write(&s).expect("Write file failed");
+                return Ok(());
+            }
             println!("{}", plaintext);
 
-            let s = plaintext
-                .into_string()
-                .expect("Unable to parse plaintext to string");
-            println!("{}", s);
             Ok(())
         }
         _ => Ok(()),

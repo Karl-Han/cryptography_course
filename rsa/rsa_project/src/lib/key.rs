@@ -225,15 +225,6 @@ impl PublicKey {
 
         return Cipher { fragments: res };
     }
-    pub fn from_u8_slice(arr: &mut [u8], key_size: &usize) -> Self {
-        let n_arr = &arr[0..*key_size];
-        let e_arr = &arr[*key_size..];
-
-        let e = BigInt::from_bytes_le(Sign::Plus, e_arr);
-        let n = BigInt::from_bytes_le(Sign::Plus, n_arr);
-
-        PublicKey { e, n }
-    }
     pub fn from_e_n(e: BigInt, n: BigInt) -> Self {
         PublicKey { e, n }
     }
@@ -245,10 +236,8 @@ impl PublicKey {
 
         let result = hasher.result();
         let res = BigInt::from_bytes_le(Sign::Plus, &result);
-        let text = BigInt::from_bytes_le(Sign::Plus, &buf.as_bytes());
+        let text = BigInt::from_str(buf).expect("Unable to parse string to BigInt");
 
-        println!("res = {}", res);
-        println!("text = {}", text);
         return res == text;
     }
     pub fn e(&self) -> BigInt {
