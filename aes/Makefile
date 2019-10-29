@@ -1,3 +1,5 @@
+all: main
+
 TARGET=main
 
 crypto.o: crypto.c crypto.h
@@ -9,11 +11,9 @@ main.o: main.c crypto.h
 main: main.o crypto.o
 	$(CC) -g -o $@ $^
 
-all: main
-
-test:all
-	./main
-
-.PHONY:clean
+.PHONY:clean run
 clean:
 	rm *.o $(TARGET) *.h.gch
+
+run: all
+	./main

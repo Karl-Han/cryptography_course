@@ -14,7 +14,7 @@ void swap(short* n1, short* n2) {
     *n1 = *n1 ^ *n2;
 }
 
-short multiply(short a, short b) {
+short multiply(short a, short b, short xor_num) {
     short res = 0;
     while (a && b) {
         if (b & 1) {
@@ -22,7 +22,7 @@ short multiply(short a, short b) {
         }
         // Test if a will overflow when *2
         if (a & 0x80) {
-            a = (a << 1) ^ 0x1b;
+            a = (a << 1) ^ xor_num;
         } else {
             a <<= 1;
         }
@@ -59,7 +59,7 @@ bool divide(short a, short b, short* quotient, short* remainder) {
     }
     *quotient = q;
     *remainder = a;
-    return t == (multiply(b, *quotient) ^ *remainder);
+    return t == (multiply(b, *quotient, 0x1b) ^ *remainder);
 }
 
 short inverse_gf28(short a) {
@@ -82,10 +82,8 @@ short egcd(short* a, short* b, short* s, short* t) {
     short q, r;
     while (*b) {
         divide(*a, *b, &q, &r);
-        s1 ^= multiply(t1, q);
-        s2 ^= multiply(t2, q);
-        // gf28_mod(&s1);
-        // gf28_mod(&s2);
+        s1 ^= multiply(t1, q, 0x1b);
+        s2 ^= multiply(t2, q, 0x1b);
         *a = *b;
         *b = r;
         swap(&s1, &t1);

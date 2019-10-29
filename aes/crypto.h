@@ -9,7 +9,7 @@ short gf28_mod(short* num);
 
 void swap(short* n1, short* n2);
 
-short multiply(short a, short b);
+short multiply(short a, short b, short xor_num);
 
 // Get the highest bit position of num
 short highest_bit(short num);

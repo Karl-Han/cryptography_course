@@ -1,0 +1,58 @@
+name: rsa_rust
+version: "0.1"
+author: Karl Han <karl-han@iwktd.com>
+about: Handcraft RSA in rust
+subcommands:
+  - encrypt:
+    args:
+      - auth:
+        short: a
+        long: auth
+      - new:
+        short: n
+        long: new
+      - e-key:
+        long: e-key
+        value_name: e-key
+        takes_value: true
+      - n-key:
+        long: n-key
+        value_name: n-key
+        takes_value: true
+      - text:
+        short: t
+        long: text
+        value_name: t
+        takes_value: true
+      - filename:
+        short: f
+        long: filename
+      - key_size:
+        short: l
+        long: key_size
+  - decrypt:
+    args:
+      - sign:
+        short: s
+        long: sign 
+      - d-key:
+        long: d-key
+        value_name: d-key
+        takes_value: true
+      - n-key:
+        long: n-key
+        value_name: n-key
+        takes_value: true
+      - cipher:
+        short: c
+        long: cipher 
+        value_name: cipher
+        takes_value: true
+      - filename:
+        short: f
+        long: filename
+        value_name: filename
+        takes_value: true
+      - key_size:
+        short: l
+        long: key_size

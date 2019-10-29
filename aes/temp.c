@@ -1,7 +1,24 @@
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
-#include "crypto.h"
+
+short multiply(short a, short b, short xor_num) {
+    short res = 0;
+    while (a && b) {
+        if (b & 1) {
+            res ^= a;
+        }
+        // Test if a will overflow when *2
+        if (a & 0x80) {
+            a = (a << 1) ^ xor_num;
+        } else {
+            a <<= 1;
+        }
+        b >>= 1;
+    }
+    return res % 256;
+}
 
 bool test_new_modulo(short xor_num) {
     bool arr[0x100];
@@ -25,45 +42,14 @@ bool test_new_modulo(short xor_num) {
         }
         memset(arr, 0, sizeof(bool) * 0x100);
     }
-    printf("Pass multiply_test\n");
+    return true;
 }
-
-void highest_bit_test() { assert(highest_bit(0x80) == 8); }
-
-void divide_test() {
-    short a = 127;
-    short b = 23;
-    short q, r;
-    bool bl = divide(a, b, &q, &r);
-    assert(bl);
-    assert(q == 6);
-    assert(r == 13);
-    printf("Pass divide_test\n");
-}
-
-void egcd_test() {
-    for (short i = 1; i < 256; i++) {
-        short ins = inverse_gf28(i);
-        // printf("i = %x, and inverse is %x\n", i, ins);
-        assert(multiply(ins, i) == 1);
-    }
-    printf("Pass egcd_test\n");
-}
-
-void s_box_test() {
-    for (short i = 0; i < 256; i++) {
-        short ins = s_box(inverse_gf28(i));
-        // printf("%d's ins = %02x, sbox[i] = %02x\n", i, ins, sbox[i]);
-        assert(ins == sbox[i]);
-    }
-    printf("Pass s_box_test\n");
-}
-
-unsigned char sub_byte(unsigned char c) { return s_box(inverse_gf28(c)); }
 
 int main() {
     assert(test_new_modulo(0x1b) == true);
+    printf("Pass xor 0x1b\n");
     assert(test_new_modulo(0x1d) == true);
+    printf("Pass xor 0x1d\n");
 
     assert(test_new_modulo(0x1c) == false);
     return 0;
