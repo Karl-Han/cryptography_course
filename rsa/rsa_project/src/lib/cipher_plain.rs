@@ -32,9 +32,9 @@ pub struct Plaintext {
 }
 
 impl Plaintext {
-    pub fn new(s: &str) -> Self {
+    pub fn new(s: &[u8]) -> Self {
         Plaintext {
-            fragments: BigInt::from_bytes_le(Sign::Plus, s.as_bytes()),
+            fragments: BigInt::from_bytes_le(Sign::Plus, s),
         }
     }
     pub fn into_string(&self) -> Result<String, FromUtf8Error> {

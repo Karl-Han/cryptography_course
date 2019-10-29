@@ -234,27 +234,21 @@ impl PublicKey {
 
         PublicKey { e, n }
     }
-    pub fn into_vec(&self) -> Vec<u8> {
-        let e_arr = self.e.to_biguint().unwrap().to_bytes_le();
-        let n_arr = self.n.to_biguint().unwrap().to_bytes_le();
-
-        let mut vec = n_arr.to_vec();
-        vec.extend(e_arr.to_vec().iter());
-        return vec;
-    }
     pub fn from_e_n(e: BigInt, n: BigInt) -> Self {
         PublicKey { e, n }
     }
-    pub fn authorize(&self, filename: &str, text: &str) -> bool {
+    pub fn authorize(&self, filename: &str, buf: &str) -> bool {
         let mut file = File::open(filename).expect("Unable to open file");
         let mut hasher = Sha3_256::new();
 
-        io::copy(&mut file, &mut hasher);
+        io::copy(&mut file, &mut hasher).expect("Failed to put file to hasher");
 
         let result = hasher.result();
         let res = BigInt::from_bytes_le(Sign::Plus, &result);
-        let text = BigInt::from_str(text).expect("Unable to parse text into BigInt");
+        let text = BigInt::from_bytes_le(Sign::Plus, &buf.as_bytes());
 
+        println!("res = {}", res);
+        println!("text = {}", text);
         return res == text;
     }
     pub fn e(&self) -> BigInt {
@@ -267,7 +261,7 @@ impl PublicKey {
 
 impl fmt::Display for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PublicKey:[e = {}\nn = {}]", self.e, self.n)
+        write!(f, "PublicKey:[\ne = {}\nn = {}]", self.e, self.n)
     }
 }
 
