@@ -165,6 +165,12 @@ impl PrivateKey {
     pub fn e(&self) -> BigInt {
         return self.e.clone();
     }
+    pub fn d(&self) -> BigInt {
+        return self.d.clone();
+    }
+    pub fn n(&self) -> BigInt {
+        return self.n.clone();
+    }
     pub fn product(&self) -> BigInt {
         return self.p_q_pair.product();
     }
@@ -228,7 +234,6 @@ impl PublicKey {
 
         PublicKey { e, n }
     }
-
     pub fn into_vec(&self) -> Vec<u8> {
         let e_arr = self.e.to_biguint().unwrap().to_bytes_le();
         let n_arr = self.n.to_biguint().unwrap().to_bytes_le();
@@ -251,6 +256,12 @@ impl PublicKey {
         let text = BigInt::from_str(text).expect("Unable to parse text into BigInt");
 
         return res == text;
+    }
+    pub fn e(&self) -> BigInt {
+        return self.e.clone();
+    }
+    pub fn n(&self) -> BigInt {
+        return self.n.clone();
     }
 }
 

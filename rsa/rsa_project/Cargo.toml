@@ -10,5 +10,5 @@ edition = "2018"
 num-traits = "0.2"
 rand = "0.5"
 num-bigint = { version = "0.2", features = ["rand"] }
-clap = "~2.27.0"
+clap = "2.33.0"
 sha3 = "0.8.2"
