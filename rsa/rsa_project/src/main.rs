@@ -2,6 +2,7 @@ extern crate clap;
 extern crate num_bigint as bigint;
 extern crate num_traits;
 extern crate rand;
+extern crate sha3;
 
 use bigint::*;
 use clap::{App, Arg, SubCommand};
@@ -9,6 +10,7 @@ use num_traits::cast::ToPrimitive;
 use primality_test::*;
 use rand::distributions::uniform::UniformSampler;
 use rand::RngCore;
+use sha3::{Digest, Sha3_256};
 use std::fmt;
 use std::fs::File;
 use std::io::{self, prelude::*};
@@ -160,34 +162,6 @@ struct PrivateKey {
     n: BigInt,
 }
 
-/*
-impl From<Vec<u8>> for PrivateKey {
-    fn from(arr: Vec<u8>) -> PrivateKey {
-        let phi_n_arr = &arr[0..4];
-        let e_arr = &arr[0..4];
-        let d_arr = &arr[5..8];
-        let n_arr = &arr[8..12];
-
-        let phi_n_length = BigUint::from_bytes_le(&phi_n_arr).to_usize().unwrap();
-        let e_length = BigUint::from_bytes_le(&e_arr).to_usize().unwrap();
-        let d_length = BigUint::from_bytes_le(&d_arr).to_usize().unwrap();
-        let n_length = BigUint::from_bytes_le(&n_arr).to_usize().unwrap();
-
-        let phi_n = BigUint::from_bytes_le(&arr[12..(12 + phi_n_length)]).to_usize().unwrap();
-        let e= BigUint::from_bytes_le(&arr[(12 + phi_n_length)..(12 + phi_n_length + e_length)]).to_usize().unwrap();
-        let d= BigUint::from_bytes_le(&arr[(12 + phi_n_length + e_length)..(12 + phi_n_length + e_length + d_length)).to_usize().unwrap();
-        let n= BigUint::from_bytes_le(&arr[(12 + phi_n_length + e_length + d_length)..(12 + phi_n_length + e_length + d_length + n_length)).to_usize().unwrap();
-
-        PrivateKey{
-            phi_n,
-            e,
-            d,
-            n,
-        }
-    }
-}
-*/
-
 impl PrivateKey {
     pub fn new(pair: PrimePair, e: BigInt) -> Self {
         // e is the one chosen to be part of PU
@@ -229,6 +203,14 @@ impl PrivateKey {
     pub fn default_new(pair: PrimePair) -> Self {
         return Self::new(pair, BigInt::from(65537u32));
     }
+    pub fn new_with_dn(d: BigInt, n: BigInt) -> Self {
+        PrivateKey {
+            p_q_pair: PrimePair::from_p_q(num_traits::zero(), num_traits::zero()),
+            e: num_traits::zero(),
+            d,
+            n,
+        }
+    }
     pub fn new_with_key_size(size: usize) -> Self {
         let p = size / 2;
         let q = size - p;
@@ -252,6 +234,15 @@ impl PrivateKey {
     }
     pub fn from_biguint(p: BigInt, q: BigInt) -> Self {
         return Self::default_new(PrimePair::from_p_q(p, q));
+    }
+    pub fn sign(&self, filename: &str) -> BigInt {
+        let mut file = File::open(filename).expect("Unable to open file");
+        let mut hasher = Sha3_256::new();
+
+        io::copy(&mut file, &mut hasher);
+
+        let result = hasher.result();
+        return BigInt::from_bytes_le(Sign::Plus, &result);
     }
 }
 
@@ -298,6 +289,15 @@ pub fn egcd(a: &mut BigInt, b: &mut BigInt, r: &mut BigInt, s: &mut BigInt) -> O
 struct Cipher {
     // fixed length per element
     pub fragments: BigInt,
+}
+
+impl Cipher {
+    pub fn new(s: &str) -> Cipher {
+        let num = BigInt::from_str(s).expect("Unable to parse Cipher from str");
+        //println!("Cipher {} with {} bits", num, num.bits());
+
+        Cipher { fragments: num }
+    }
 }
 
 #[derive(Debug)]
@@ -383,6 +383,21 @@ impl PublicKey {
         vec.extend(e_arr.to_vec().iter());
         return vec;
     }
+    pub fn from_e_n(e: BigInt, n: BigInt) -> Self {
+        PublicKey { e, n }
+    }
+    pub fn authorize(&self, filename: &str, text: &str) -> bool {
+        let mut file = File::open(filename).expect("Unable to open file");
+        let mut hasher = Sha3_256::new();
+
+        io::copy(&mut file, &mut hasher);
+
+        let result = hasher.result();
+        let res = BigInt::from_bytes_le(Sign::Plus, &result);
+        let text = BigInt::from_str(text).expect("Unable to parse text into BigInt");
+
+        return res == text;
+    }
 }
 
 impl From<PrivateKey> for PublicKey {
@@ -398,9 +413,31 @@ fn argument_parse() -> io::Result<()> {
     let matches = App::new("RSA in Rust")
         .subcommand(
             SubCommand::with_name("encrypt")
+                .arg(Arg::with_name("auth").short("a").long("auth"))
+                .arg(Arg::with_name("new").long("new").help("Use new key pair"))
+                .arg(
+                    Arg::with_name("e")
+                        .short("e")
+                        .long("e-part")
+                        .takes_value(true)
+                        .help("Exp part of public key"),
+                )
+                .arg(
+                    Arg::with_name("n")
+                        .short("n")
+                        .long("n-part")
+                        .takes_value(true)
+                        .help("Modulus part of the public key"),
+                )
+                .arg(
+                    Arg::with_name("text")
+                        .short("t")
+                        .long("text")
+                        .takes_value(true)
+                        .help("Text to be encrypt"),
+                )
                 .arg(
                     Arg::with_name("filename")
-                        .required(true)
                         .short("f")
                         .long("filename")
                         .takes_value(true)
@@ -426,20 +463,34 @@ fn argument_parse() -> io::Result<()> {
                         .long("key-file")
                         .takes_value(true)
                         .help("Specify the file contains public key"),
-                )
-                .arg(
-                    Arg::with_name("new")
-                        .short("n")
-                        .long("new")
-                        .help("Use new key pair"),
                 ),
         )
         .subcommand(
             SubCommand::with_name("decrypt")
                 .arg(Arg::with_name("sign").short("s").long("sign"))
                 .arg(
+                    Arg::with_name("d")
+                        .short("d")
+                        .long("d-part")
+                        .takes_value(true)
+                        .help("Exp part of private key"),
+                )
+                .arg(
+                    Arg::with_name("n")
+                        .short("n")
+                        .long("n-part")
+                        .takes_value(true)
+                        .help("Modulus part of the private key"),
+                )
+                .arg(
+                    Arg::with_name("cipher")
+                        .short("ci")
+                        .long("cipher")
+                        .takes_value(true)
+                        .help("Cipher to be decrypt"),
+                )
+                .arg(
                     Arg::with_name("filename")
-                        .required(true)
                         .short("f")
                         .long("filename")
                         .takes_value(true)
@@ -454,69 +505,17 @@ fn argument_parse() -> io::Result<()> {
                 )
                 .arg(
                     Arg::with_name("key_file")
-                        .required(true)
                         .short("k")
                         .long("key-file")
                         .takes_value(true)
                         .help("Specify the file contains public key"),
                 ),
         )
-        .subcommand(
-            SubCommand::with_name("sign")
-                .arg(
-                    Arg::with_name("filename")
-                        .required(true)
-                        .short("f")
-                        .long("file")
-                        .takes_value(true)
-                        .help("Specify the file to be signed"),
-                )
-                .arg(
-                    Arg::with_name("output_filename")
-                        .short("o")
-                        .long("output")
-                        .takes_value(true)
-                        .help("Specify the output filename."),
-                )
-                .arg(
-                    Arg::with_name("pr_key_file")
-                        .required(true)
-                        .short("p")
-                        .long("private-key")
-                        .takes_value(true)
-                        .help("Specify the private key file"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("authorize")
-                .arg(
-                    Arg::with_name("filename")
-                        .required(true)
-                        .short("f")
-                        .long("file")
-                        .takes_value(true)
-                        .help("Specify the file to be authorize"),
-                )
-                .arg(
-                    Arg::with_name("origin_file")
-                        .short("o")
-                        .long("origin")
-                        .takes_value(true)
-                        .help("Specify the original filename."),
-                )
-                .arg(
-                    Arg::with_name("pu_key_file")
-                        .required(true)
-                        .short("p")
-                        .long("public-key")
-                        .takes_value(true)
-                        .help("Specify the public key file"),
-                ),
-        )
         .get_matches();
 
     match matches.subcommand() {
         ("encrypt", Some(sub_matches)) => {
+            /*
             let filename = sub_matches.value_of("filename").unwrap();
             let output_filename: Option<&str> = sub_matches.value_of("output_filename");
             let key_size = sub_matches.value_of("key_size").unwrap();
@@ -550,24 +549,67 @@ fn argument_parse() -> io::Result<()> {
                 let cipher = pu.encrypt(Plaintext::new(&content));
                 println!("Cipher = {}", cipher);
             }
+            */
+            if sub_matches.is_present("new") {
+                let key_size = sub_matches.value_of("key_size").unwrap();
+                let pr = PrivateKey::new_with_key_size(
+                    FromStr::from_str(key_size).expect("Unable to parse key_size in ENCRYPT"),
+                );
+                println!("{}", pr);
+                let pu = PublicKey::from(pr);
+
+                println!("{}", pu);
+                return Ok(());
+            }
+            let e = sub_matches.value_of("e").unwrap();
+            let n = sub_matches.value_of("n").unwrap();
+            let text = sub_matches.value_of("text").unwrap();
+
+            let pu = PublicKey::from_e_n(
+                BigInt::from_str(e).expect("Unable to parse e-part"),
+                BigInt::from_str(n).expect("Unable to parse n-part"),
+            );
+            if sub_matches.is_present("auth") {
+                // authorize process with just public key
+                let filename = sub_matches.value_of("filename").unwrap();
+                if pu.authorize(filename, text) {
+                    println!("Match signature of {}", filename);
+                } else {
+                    println!("WRONG signature of {}", filename);
+                }
+            }
+
+            let cipher = pu.encrypt(Plaintext::new(text));
+            println!("{}", cipher);
             Ok(())
         }
         ("decrypt", Some(sub_matches)) => {
-            let filename = sub_matches.value_of("filename").unwrap();
-            let key_size = sub_matches.value_of("key_size").unwrap();
-            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
-            Ok(())
-        }
-        ("sign", Some(sub_matches)) => {
-            let filename = sub_matches.value_of("filename").unwrap();
-            let pr_key_file = sub_matches.value_of("pr_key_file").unwrap();
-            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
-            Ok(())
-        }
-        ("authorize", Some(sub_matches)) => {
-            let filename = sub_matches.value_of("filename").unwrap();
-            let pu_key_file = sub_matches.value_of("pu_key_file").unwrap();
-            let output_filename: Option<&str> = sub_matches.value_of("output_filename");
+            let d = sub_matches.value_of("d").unwrap();
+            let n = sub_matches.value_of("n").unwrap();
+            if sub_matches.is_present("sign") {
+                let filename = sub_matches.value_of("filename").unwrap();
+                let pr = PrivateKey::new_with_dn(
+                    BigInt::from_str(d).expect("Unable to parse d-part in DECRYPT"),
+                    BigInt::from_str(n).expect("Unable to parse n-part in DECRYPT"),
+                );
+
+                let signature = pr.sign(filename);
+                println!("{}", signature);
+                return Ok(());
+            }
+            let cipher = sub_matches.value_of("cipher").unwrap();
+            let pr = PrivateKey::new_with_dn(
+                BigInt::from_str(d).expect("Unable to parse d-part"),
+                BigInt::from_str(n).expect("Unable to parse n-part"),
+            );
+
+            let plaintext = pr.decrypt(Cipher::new(cipher));
+            println!("{}", plaintext);
+
+            let s = plaintext
+                .into_string()
+                .expect("Unable to parse plaintext to string");
+            println!("{}", s);
             Ok(())
         }
         _ => Ok(()),
@@ -617,5 +659,13 @@ mod test {
         );
         assert_eq!(s, m.into_string()?);
         Ok(())
+    }
+    #[test]
+    fn sign_authorize_test() {
+        let pr = PrivateKey::new_with_key_size(1024);
+        let pu = PublicKey::from(pr.clone());
+
+        let sign = pr.sign("file");
+        assert!(pu.authorize("file", &sign.to_str_radix(10)));
     }
 }
