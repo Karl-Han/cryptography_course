@@ -30,12 +30,12 @@ fn egcd_test() -> Result<(), num_bigint::ParseBigIntError> {
 fn encrypt_decrypt_test() -> Result<(), FromUtf8Error> {
     let pr = PrivateKey::new_with_key_size(1024);
     let pu: PublicKey = pr.clone().into();
-    println!("{}", pr);
-    println!("{}", pu);
+    //println!("{}", pr);
+    //println!("{}", pu);
 
     let s = "Hello World";
     println!("{:?}", s.as_bytes());
-    let cipher = pu.encrypt(Plaintext::new(s));
+    let cipher = pu.encrypt(Plaintext::new(s.as_bytes()));
     println!("cipher = {}", cipher);
 
     let m = pr.decrypt(cipher);
@@ -54,5 +54,5 @@ fn sign_authorize_test() {
     let pu = PublicKey::from(pr.clone());
 
     let sign = pr.sign("file");
-    assert!(pu.authorize("file", &sign.to_str_radix(10)));
+    assert!(pu.authorize("file", &sign.to_bytes_le().1));
 }
