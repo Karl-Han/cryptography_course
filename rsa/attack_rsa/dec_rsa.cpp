@@ -25,13 +25,30 @@ const char* c_star_s =
     "07902698664117607932987143144840434115330795749666874995701111872117286699"
     "6397";
 
-// const char *m_text_s = "2";
+ const char *m_text_s = "2";
 
     const char* c_cipher = "775789568255447714013247918834475198679653917741675336925599335265205597974556878796619688391490153400553690715156825186410083467239441867930362368759072824742512821423959166270736914130604102452801162684877374802075310241079026986641176079329871431448404341153307957496668749957011118721172866996397";
 
 int main() {
-    char* m = dec(c_cipher);  // access the dec oracle
+    mpz_t n, e, c_cipher_mul2, origin_cipher;
+    mpz_init_set_str(n, N_str, 10);
+    mpz_init_set_str(e, e_str, 10);
+    mpz_init_set_str(c_cipher_mul2, m_text_s, 10);
+    mpz_init_set_str(origin_cipher, c_cipher, 10);
 
+    // calculate 2^e mod n
+    mpz_powm(c_cipher_mul2, c_cipher_mul2, e, n);
+    // calculate (2*m)^e mod n
+    mpz_mul(c_cipher_mul2, c_cipher_mul2, origin_cipher);
+
+    char* m = dec(c_cipher_mul2);  // access the dec oracle
+
+    mpz_t mul2_cipher, two;
+    mpz_init_set_str(mul2_cipher, m, 10);
+    mpz_init_set_str(two, m_text_s, 10);
+    mpz_tdiv_q(mul2_cipher, mul2_cipher, two);
+
+    mpz_get_str(m,10,  mul2_cipher);
     printf("%s", m);
 
     return 0;
