@@ -89,6 +89,8 @@ impl PrimePair {
         return self.q.clone();
     }
     pub fn from_p_q(p: BigInt, q: BigInt) -> Self {
+        assert!(miller_rabin(&p, 50));
+        assert!(miller_rabin(&q, 50));
         PrimePair { p, q }
     }
 }
@@ -229,6 +231,12 @@ impl PublicKey {
         PublicKey { e, n }
     }
     pub fn authorize(&self, filename: &str, buf: &str) -> bool {
+        return self.authorize_int(
+            filename,
+            &BigInt::from_str(buf).expect("Unable to parse str to BigInt"),
+        );
+    }
+    pub fn authorize_int(&self, filename: &str, text: &BigInt) -> bool {
         let mut file = File::open(filename).expect("Unable to open file");
         let mut hasher = Sha3_256::new();
 
@@ -236,9 +244,8 @@ impl PublicKey {
 
         let result = hasher.result();
         let res = BigInt::from_bytes_le(Sign::Plus, &result);
-        let text = BigInt::from_str(buf).expect("Unable to parse string to BigInt");
 
-        return res == text;
+        return &res == text;
     }
     pub fn e(&self) -> BigInt {
         return self.e.clone();

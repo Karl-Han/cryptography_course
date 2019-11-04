@@ -57,7 +57,7 @@ fn sign_authorize_test() {
     let pu = PublicKey::from(pr.clone());
 
     let sign = pr.sign("file");
-    //assert!(pu.authorize("file", &sign.to_bytes_le().1));
+    assert!(pu.authorize_int("file", &sign));
 }
 
 #[test]
@@ -70,16 +70,12 @@ fn attack_p_q_close() {
 
 #[test]
 fn attack_d_too_small() -> Result<(), ParseBigIntError> {
-    let n = BigUint::from_str("3351434899016066636045491452890486808714908934340001357148989")?;
-    let e = BigUint::from_str("568760665726569109874762046085236437330350817075710631256941")?;
+    let n = BigUint::from_str("205320043521075746592613")?;
+    let e = BigUint::from_str("70760135995620281241019")?;
 
     let pr = attack::pr_d_too_small(e.clone(), n);
-    let plaintext = pr.decrypt(Cipher::new(
-        "3261683411171403201777854986577156734462063771959389399058422",
-    ));
-    println!("{}", plaintext);
-
     let pu = PublicKey::from(pr);
+
     assert_eq!(BigInt::from(e), pu.e());
     Ok(())
 }
