@@ -6,6 +6,7 @@ mod lib;
 mod tests;
 
 use clap::{App, Arg, SubCommand};
+use fraction::Ratio;
 use lib::{
     cipher_plain::{Cipher, Plaintext},
     key::{PrivateKey, PublicKey},
@@ -304,5 +305,21 @@ fn argument_parse() -> io::Result<()> {
 }
 
 fn main() {
-    argument_parse().expect("Error when parsing arguments, please use `--help`.");
+    //argument_parse().expect("Error when parsing arguments, please use `--help`.");
+    //let n = BigInt::from_str("3351434899016066636045491452890486808714908934340001357148989")
+    //    .expect("Unable to parse string");
+    //let sqrt_n = n.clone().sqrt();
+    //println!("{}", sqrt_n);
+    //let mut counter = BigInt::from(2u32);
+    //while counter.clone() < sqrt_n {
+    //    if n.clone() % counter.clone() == BigInt::from(0u32) {
+    //        break;
+    //    }
+    //    counter = counter + 1;
+    //}
+    //println!("A prime is {}", counter);
+    let a = Ratio::new(1u32, 1u32);
+    let b = Ratio::new(2u32, 1u32);
+
+    println!("{}", a - b);
 }
