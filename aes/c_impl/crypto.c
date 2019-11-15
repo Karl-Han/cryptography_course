@@ -4,14 +4,14 @@
 // typedef unsigned char* short*;
 
 short gf28_mod(short* num) {
-    *num = (*num + 283 % 283);
+    *num = (*num + 283) % 283;
     return *num;
 }
 
 void swap(short* n1, short* n2) {
-    *n1 = *n1 ^ *n2;
-    *n2 = *n1 ^ *n2;
-    *n1 = *n1 ^ *n2;
+    short temp = *n1;
+    *n1 = *n2;
+    *n2 = temp;
 }
 
 short multiply(short a, short b, short xor_num) {
@@ -65,13 +65,8 @@ bool divide(short a, short b, short* quotient, short* remainder) {
 short inverse_gf28(short a) {
     short b = 0x11b;
     short s, t;
-    if (a > b) {
-        egcd(&a, &b, &s, &t);
-        return s;
-    } else {
-        egcd(&b, &a, &s, &t);
-        return t;
-    }
+    egcd(&b, &a, &s, &t);
+    return t;
 }
 
 // Return gcd(a, b)
