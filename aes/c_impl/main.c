@@ -92,6 +92,11 @@ int main() {
     egcd_test();
     s_box_test();
 
+    //printf("%d", inverse_gf28(1));
+    short q, r;
+    divide(0x11b, 2, &q, &r);
+    printf("q = %d, r = %d\n", q, r);
+    printf("%x", multiply(0x11b, 2, 0x1b) ^ r);
     assert(test_new_modulo(0x1b) == true);
     assert(test_new_modulo(0x1d) == true);
     assert(test_new_modulo(0x1c) == false);

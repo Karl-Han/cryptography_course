@@ -1,6 +1,6 @@
 use crate::lib::gen_key;
 
-const s_box: [u8; 256] = [
+pub const S_BOX: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
     0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -21,11 +21,11 @@ const s_box: [u8; 256] = [
 
 fn highest_bit(num: &u16) -> u8 {
     let mut counter = 0;
-    let mut temp = num;
+    let mut temp = num.clone();
 
-    while temp != &0u16 {
+    while temp != 0u16 {
         counter += 1;
-        *temp >>= 1;
+        temp >>= 1;
     }
 
     counter
@@ -33,47 +33,51 @@ fn highest_bit(num: &u16) -> u8 {
 
 // a and b is at most u9 while calculating
 fn multiply(a_ori: &u16, b_ori: &u16) -> u16 {
-    let mut a = a_ori;
-    let mut b = b_ori;
+    let mut a = a_ori.clone();
+    let mut b = b_ori.clone();
 
     if b > a {
         let temp = a;
         a = b;
-        b = a;
+        b = temp;
     }
+    //println!("a = {}, b = {}", a, b);
 
     let mut res = 0;
     // a > b for sure
-    while *a != 0u16 && *b != 0u16 {
+    while a != 0u16 && b != 0u16 {
         // b is for right shift
         // a is for a * 2 and test 0x80
-        if *b & 0x1 == 1 {
-            res ^= *a;
+        if (b & 0x1) == 1 {
+            res ^= a;
         }
 
-        if *a & 0x80 == 0x80 {
+        if (a & 0x80) == 0x80 {
             // next round it will exceed 0x80 mod 0x11b
             //a = &(&(a.clone() << 1) ^ 0x1bu16).clone();
-            *a ^= 0x1;
+            a = (a << 1) ^ 0x1b;
         } else {
-            *a <<= 1;
+            a <<= 1;
         }
-        *b >>= 1;
+        b >>= 1;
+        //println!("a = {}, b = {}", a, b);
     }
+    //println!("In multiply res = {}", res % 256);
 
     // by just xor will not introduce higher than 0x80
-    res
+    res % 256
 }
 
 fn swap<'a>(a: &'a mut u16, b: &'a mut u16) {
-    let temp = a;
-    a = b;
-    b = temp;
+    let temp = a.clone();
+    *a = *b;
+    *b = temp;
 }
 
 fn divide(a: &u16, b: &u16) -> (u16, u16) {
     // divisor is finally r
-    let mut divisor = a;
+    // a / b = q ... divisor
+    let mut divisor = a.clone();
 
     let mut a_high = highest_bit(&divisor);
     let b_high = highest_bit(&b);
@@ -82,62 +86,68 @@ fn divide(a: &u16, b: &u16) -> (u16, u16) {
     while a_high >= b_high {
         let t: u16 = b << (a_high - b_high);
 
-        *divisor ^= t;
+        divisor ^= t;
         q |= 1 << (a_high - b_high);
         a_high = highest_bit(&divisor);
     }
 
-    assert_eq!(multiply(&b, &q) ^ divisor, *a);
+    //println!("a = {}, b = {}", a, b);
+    //println!("q = {}, r = {}", q, divisor);
+    //assert_eq!(multiply(&b, &q) ^ divisor, *a);
     (q.clone(), divisor.clone())
 }
 
 // return gcd(a, b)
 fn egcd(a_ori: &u16, b_ori: &u16, s: &mut u16, t: &mut u16) -> u16 {
-    let mut a = a_ori;
-    let mut b = b_ori;
+    let mut a = a_ori.clone();
+    let mut b = b_ori.clone();
     let mut s1: u16 = 1;
     let mut s2: u16 = 0;
     let mut t1: u16 = 0;
     let mut t2: u16 = 1;
 
-    while *b != 0u16 {
+    while b != 0u16 {
         let (q, r) = divide(&a, &b);
         a = b;
-        *b = r;
-        s1 = s1 - q * t1;
-        s2 = s2 - q * t2;
+        b = r;
+        s1 ^= multiply(&q, &t1);
+        s2 ^= multiply(&q, &t2);
+
         swap(&mut s1, &mut t1);
         swap(&mut s2, &mut t2);
+        //println!("a = {}, b = {}", a, b);
+        //println!("s1 = {}, s2 = {}", s1, s2);
     }
 
     // at this time
     // a_ori * s1 + b_ori * s2 == a
-    assert_eq!(multiply(&a_ori, &s1) ^ multiply(&b, &s2), *a);
+    //assert_eq!(multiply(&a_ori, &s1) ^ multiply(&b_ori, &s2), a % 256);
 
+    //println!("s = {}, t = {}", s1, s2);
     *s = s1;
     *t = s2;
-    *a
+    a
 }
 
 pub fn inverse_gf28(num: &u8) -> u8 {
+    //println!("In inverse_gf28 num = {}", num);
     let a: u16 = 0x11b;
-    let mut t: u16 = 0;
     let mut s: u16 = 0;
+    let mut t: u16 = 0;
     let num: u16 = num.clone().into();
-    egcd(&a, &num, &mut t, &mut s);
-    let ret = (s + 0x11b) % 0x1b;
-    ret.to_le_bytes()[0]
+
+    egcd(&a, &num, &mut s, &mut t);
+    let ret = (t ^ 0x11b) ^ 0x1b;
+    let res = ret.to_le_bytes()[0];
+    //println!("res = {}", res);
+    res
 }
 
-pub fn s_box_num(num_ori: &u8) -> u8 {
-    println!("num = {}", num_ori);
-    let num = inverse_gf28(&num_ori);
-    println!("inverse of num = {}", num);
+pub fn s_box(num: &u8) -> u8 {
     let c = 0x63;
     let mut temp: u8 = 0;
-    let res: u8 = 0;
+    let mut res: u8 = 0;
     for i in 0..8 {
-        println!("i = {}", i);
         temp ^= num >> (i % 8);
         temp ^= num >> ((i + 4) % 8);
         temp ^= num >> ((i + 5) % 8);
@@ -150,6 +160,5 @@ pub fn s_box_num(num_ori: &u8) -> u8 {
         temp = 0;
     }
 
-    assert_eq!(s_box[num_ori.clone() as usize], res);
     res
 }
