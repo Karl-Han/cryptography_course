@@ -6,18 +6,61 @@ use std::ops::{Add, Mul, Sub};
 
 pub const MIX_COL: [[u8; 4]; 4] = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
 
+pub const RC: [u8; 10] = [1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+
 #[derive(Debug)]
-pub struct Key([u8; 32]);
+pub struct Key([u8; 16]);
 
 // Key is used to expand
 impl Key {
-    pub fn new() -> Key {
-        let mut k = [0u8; 32];
-        let mut rng = rand::thread_rng();
+    pub fn new(arr: &[u8; 16]) -> Key {
+        Key(arr.clone())
+    }
 
-        rng.fill_bytes(&mut k);
-        println!("{:?}", k);
-        Key(k)
+    pub fn expansion(&self) -> Vec<u32> {
+        // implement the default case with key is 128bits
+        let mut v: Vec<u32> = Vec::new();
+
+        // init first four element in v
+        for i in 0..4 {
+            let mut arr = [0u8; 4];
+            for j in 0..4 {
+                arr[j] = self.0[4 * i + j];
+            }
+            arr.reverse();
+            let word: u32 = u32::from_le_bytes(arr);
+            println!("w{:<3} = {:08x}", i, word);
+            v.push(word);
+        }
+
+        // the rest 40 words
+        for i in 4..44 {
+            let mut temp = v[i - 1].clone();
+
+            if i % 4 == 0 {
+                // temp is s_box(shift_row(temp, 1))
+                let mut t = temp.to_be_bytes();
+                M_matrix::shift_row(&mut t, 1);
+                println!("Rot(w{0}) = x{0:<} = {1:x?}", i - 1, t);
+                let mut t: Vec<u8> = t.iter().map(|x| s_box(&x)).collect();
+                println!("S_BOX(x{0:<}) = y{0:<} = {1:x?}", i - 1, t);
+                println!("RC{:02} = {:02x} 00 00 00", (i - 1) / 4, RC[(i - 1) / 4]);
+                t[0] ^= RC[(i - 1) / 4];
+                println!("y{0:<} ^ RC{1:02} = {2:x?}", i - 1, RC[(i - 1) / 4], t);
+                let mut bytes = [0u8; 4];
+                for (i, item) in t.iter().enumerate() {
+                    bytes[i] = item.clone();
+                }
+                //bytes.reverse();
+                temp = u32::from_be_bytes(bytes);
+            }
+
+            let res = v[i - 4] ^ temp;
+            println!("w{:<3} = {:08x}", i, res);
+            v.push(res);
+        }
+
+        v
     }
 }
 
@@ -27,6 +70,7 @@ impl Key {
 //    M_matrix([[u8;4]; 4],
 //}
 
+// Start to think about the necessity of M_row
 pub struct M_row([u8; 16]);
 
 impl M_row {
@@ -172,12 +216,14 @@ impl M_matrix {
         println!("matrix after shift:{:?}", self.msg);
     }
 
-    fn shift_row(row: &mut [u8; 4], i: usize) {
+    pub fn shift_row(row: &mut [u8; 4], i: usize) {
         let temp = row.clone();
 
-        for i in 0..4 {
-            row[i] = temp[(i + 1) % 4];
+        println!("temp = {:x?}", temp);
+        for j in 0..4 {
+            row[j] = temp[(i + j) % 4];
         }
+        println!("After shift = {:x?}", row);
     }
 
     pub fn mix_col(&mut self) {
