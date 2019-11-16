@@ -11,6 +11,13 @@ pub const RC: [u8; 10] = [1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
 #[derive(Debug)]
 pub struct Key([u8; 16]);
 
+//impl From<[u32; 4]> for Key {
+//    fn from(u: [u32; 4]) -> Self {
+//        // to be discuss the order of key and round_keys
+//        unimplemented!();
+//    }
+//}
+
 // Key is used to expand
 impl Key {
     pub fn new(arr: &[u8; 16]) -> Key {
@@ -61,6 +68,12 @@ impl Key {
         }
 
         v
+    }
+
+    pub fn from(arr: Vec<u32>) -> Self {
+        // to be discuss the order of the key and round_keys
+        assert_eq!(arr.len(), 4);
+        unimplemented!();
     }
 }
 
@@ -204,6 +217,7 @@ impl M_matrix {
     pub fn new() -> Self {
         Self { msg: [[0u8; 4]; 4] }
     }
+
     pub fn new_with_u8(msg: &[[u8; 4]; 4]) -> Self {
         Self { msg: msg.clone() }
     }
@@ -233,6 +247,17 @@ impl M_matrix {
 
     pub fn msg(&self) -> [[u8; 4]; 4] {
         self.msg.clone()
+    }
+    pub fn add_round_key(&mut self, round_key: &Key) {
+        // Key is [u8; 16]
+        println!("M_matrix = {:x?}", self.msg);
+        println!("Key = {:x?}", round_key.0);
+
+        for (i, ele) in round_key.0.iter().enumerate() {
+            self.msg[i / 4][i % 4] ^= ele;
+        }
+
+        println!("After round_key = {:x?}", self.msg);
     }
 }
 
