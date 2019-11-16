@@ -1,4 +1,4 @@
-use crate::lib::gen_key;
+use crate::lib::key_msg;
 
 pub const S_BOX: [u8; 256] = [
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -144,6 +144,7 @@ pub fn inverse_gf28(num: &u8) -> u8 {
 }
 
 pub fn s_box(num: &u8) -> u8 {
+    let num = inverse_gf28(&num);
     let c = 0x63;
     let mut temp: u8 = 0;
     let mut res: u8 = 0;
