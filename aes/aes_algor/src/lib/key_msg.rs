@@ -1,12 +1,13 @@
 extern crate rand;
 
-use crate::lib::basic_operations::*;
+use crate::lib::basic_operations::{self, s_box, S_BOX};
 use rand::prelude::*;
 use std::convert::TryInto;
 use std::mem;
 use std::ops::{Add, Mul, Sub};
 
 pub const MIX_COL: [[u8; 4]; 4] = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
+pub const MIX_COL_TRANS: [[u8; 4]; 4] = [[2, 1, 1, 3], [3, 2, 1, 1], [1, 3, 2, 1], [1, 1, 3, 2]];
 
 pub const RC: [u8; 10] = [1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
 
@@ -184,9 +185,9 @@ impl Mul for M_matrix {
         // match this is enough
         assert_eq!(len_row, rhs.msg[0].len());
 
-        for m in 0..len_col {
-            println!("{:?}", rhs.msg[m][1]);
-        }
+        //for m in 0..len_col {
+        //    println!("{:?}", rhs.msg[m][1]);
+        //}
 
         for k in 0..len_col {
             for i in 0..len_row {
@@ -197,13 +198,19 @@ impl Mul for M_matrix {
                     // copy the col k in rhs to temp_col_rhs
                     temp_col_rhs.push(rhs.msg[t][k]);
                 }
-                //println!("col {} = {:?}", k, temp_col_rhs);
+                //println!("col {} = {:02x?}", k, temp_col_rhs);
                 let temp_col_rhs = temp_col_rhs.as_slice();
 
+                //println!("row{} = {:02x?}", i, self.msg[i]);
+                let mut res: u16 = 0;
                 for t in 0..len_col {
-                    temp.msg[i][k] += self.msg[i][t] * temp_col_rhs[t];
+                    res ^= basic_operations::multiply(
+                        &(self.msg[i][t] as u16),
+                        &(temp_col_rhs[t] as u16),
+                    );
                 }
-                //println!("temp = {:?}", temp);
+                temp.msg[i][k] = res.to_le_bytes()[0];
+                //println!("temp = {:?}", temp.msg[i][k]);
             }
         }
 
@@ -265,10 +272,17 @@ impl M_matrix {
     pub fn add_round_key(&mut self, round_key: &Key) {
         // Key is [u8; 16]
         //println!("M_matrix = {:x?}", self.msg);
-        //println!("Key = {:x?}", round_key.0);
+        println!("Key = {:02x?}", round_key.0);
 
+        // it needs to be the transpose of key
+        // because its order is different
+        // Or I need to change the structure of expansion
         for (i, ele) in round_key.0.iter().enumerate() {
-            self.msg[i / 4][i % 4] ^= ele;
+            // Before
+            //self.msg[i / 4][i % 4] ^= ele;
+
+            // Now
+            self.msg[i % 4][i / 4] ^= ele;
         }
 
         //println!("After round_key = {:x?}", self.msg);
@@ -304,10 +318,16 @@ impl From<M_row> for M_matrix {
     fn from(m: M_row) -> Self {
         let mut arr = [[0u8; 4]; 4];
         let mut counter = 0;
-        while counter < 16 {
-            arr[counter / 4][counter % 4] = m.0[counter];
-            //println!("m[{}] = {}", counter, m.0[counter]);
-            counter += 1;
+        //while counter < 16 {
+        //    arr[counter / 4][counter % 4] = m.0[counter];
+        //    //println!("m[{}] = {}", counter, m.0[counter]);
+        //    counter += 1;
+        //}
+        // i + 4*j is the index
+        for i in 0..4 {
+            for j in 0..4 {
+                arr[i][j] = m.0[i + 4 * j];
+            }
         }
         M_matrix::new_with_u8(&arr)
     }

@@ -21,13 +21,24 @@ fn main() {
 
     let mut m: M_matrix = M_row::new(&msg).into();
 
+    println!("Init m = {:02x?}", m);
     m.add_round_key(&Key::from(Vec::from(&round_keys[0..4])));
+    println!("Round0, m = {:02x?}", m);
 
     for i in 0..9 {
         m.sub_s_box();
+        println!("Round {}, After sub_s_box m = {:02x?}", i, m);
         m.shitf_rows();
+        println!("Round {}, After shift_row m = {:02x?}", i, m);
         m.mix_col();
+        println!("Round {}, After mix_col m = {:02x?}", i, m);
         m.add_round_key(&Key::from(Vec::from(&round_keys[4 * (i + 1)..4 * (i + 2)])));
-        println!("Round {}, m = {:x?}", i, m);
+        println!("Round {}, After add round_key m = {:02x?}\n", i, m);
     }
+
+    // the last one
+    m.sub_s_box();
+    m.shitf_rows();
+    m.add_round_key(&Key::from(round_keys[40..44].to_vec()));
+    println!("Encrypt result = {:02x?}", m);
 }

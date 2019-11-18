@@ -32,7 +32,7 @@ fn highest_bit(num: &u16) -> u8 {
 }
 
 // a and b is at most u9 while calculating
-fn multiply(a_ori: &u16, b_ori: &u16) -> u16 {
+pub fn multiply(a_ori: &u16, b_ori: &u16) -> u16 {
     let mut a = a_ori.clone();
     let mut b = b_ori.clone();
 
