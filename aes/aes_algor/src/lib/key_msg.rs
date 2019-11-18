@@ -3,6 +3,7 @@ extern crate rand;
 use crate::lib::basic_operations::*;
 use rand::prelude::*;
 use std::convert::TryInto;
+use std::mem;
 use std::ops::{Add, Mul, Sub};
 
 pub const MIX_COL: [[u8; 4]; 4] = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
@@ -39,7 +40,7 @@ impl Key {
             }
             arr.reverse();
             let word: u32 = u32::from_le_bytes(arr);
-            println!("w{:<3} = {:08x}", i, word);
+            //println!("w{:<3} = {:08x}", i, word);
             v.push(word);
         }
 
@@ -51,12 +52,12 @@ impl Key {
                 // temp is s_box(shift_row(temp, 1))
                 let mut t = temp.to_be_bytes();
                 M_matrix::shift_row(&mut t, 1);
-                println!("Rot(w{0}) = x{0:<} = {1:x?}", i - 1, t);
+                //println!("Rot(w{0}) = x{0:<} = {1:x?}", i - 1, t);
                 let mut t: Vec<u8> = t.iter().map(|x| s_box(&x)).collect();
-                println!("S_BOX(x{0:<}) = y{0:<} = {1:x?}", i - 1, t);
-                println!("RC{:02} = {:02x} 00 00 00", (i - 1) / 4, RC[(i - 1) / 4]);
+                //println!("S_BOX(x{0:<}) = y{0:<} = {1:x?}", i - 1, t);
+                //println!("RC{:02} = {:02x} 00 00 00", (i - 1) / 4, RC[(i - 1) / 4]);
                 t[0] ^= RC[(i - 1) / 4];
-                println!("y{0:<} ^ RC{1:02} = {2:x?}", i - 1, RC[(i - 1) / 4], t);
+                //println!("y{0:<} ^ RC{1:02} = {2:x?}", i - 1, RC[(i - 1) / 4], t);
                 let mut bytes = [0u8; 4];
                 for (i, item) in t.iter().enumerate() {
                     bytes[i] = item.clone();
@@ -66,7 +67,7 @@ impl Key {
             }
 
             let res = v[i - 4] ^ temp;
-            println!("w{:<3} = {:08x}", i, res);
+            //println!("w{:<3} = {:08x}", i, res);
             v.push(res);
         }
 
@@ -76,10 +77,10 @@ impl Key {
     pub fn from(arr: Vec<u32>) -> Self {
         // to be discuss the order of the key and round_keys
         assert_eq!(arr.len(), 4);
-        println!("arr = {:08x?}", arr);
+        //println!("arr = {:08x?}", arr);
 
         let t: Vec<[u8; 4]> = arr.iter().map(|x| x.to_be_bytes()).collect();
-        println!("t = {:?}", t);
+        //println!("t = {:?}", t);
         let t: [[u8; 4]; 4] = t.as_slice()[..]
             .try_into()
             .expect("Failed to convert because of length");
@@ -196,7 +197,7 @@ impl Mul for M_matrix {
                     // copy the col k in rhs to temp_col_rhs
                     temp_col_rhs.push(rhs.msg[t][k]);
                 }
-                println!("col {} = {:?}", k, temp_col_rhs);
+                //println!("col {} = {:?}", k, temp_col_rhs);
                 let temp_col_rhs = temp_col_rhs.as_slice();
 
                 for t in 0..len_col {
@@ -235,21 +236,21 @@ impl M_matrix {
     }
 
     pub fn shitf_rows(&mut self) {
-        println!("matrix before shift:{:?}", self.msg);
+        //println!("matrix before shift:{:?}", self.msg);
         for i in 1..self.msg.len() {
             M_matrix::shift_row(&mut self.msg[i], i);
         }
-        println!("matrix after shift:{:?}", self.msg);
+        //println!("matrix after shift:{:?}", self.msg);
     }
 
     pub fn shift_row(row: &mut [u8; 4], i: usize) {
         let temp = row.clone();
 
-        println!("temp = {:x?}", temp);
+        //println!("temp = {:x?}", temp);
         for j in 0..4 {
             row[j] = temp[(i + j) % 4];
         }
-        println!("After shift = {:x?}", row);
+        //println!("After shift = {:x?}", row);
     }
 
     pub fn mix_col(&mut self) {
@@ -263,25 +264,25 @@ impl M_matrix {
 
     pub fn add_round_key(&mut self, round_key: &Key) {
         // Key is [u8; 16]
-        println!("M_matrix = {:x?}", self.msg);
-        println!("Key = {:x?}", round_key.0);
+        //println!("M_matrix = {:x?}", self.msg);
+        //println!("Key = {:x?}", round_key.0);
 
         for (i, ele) in round_key.0.iter().enumerate() {
             self.msg[i / 4][i % 4] ^= ele;
         }
 
-        println!("After round_key = {:x?}", self.msg);
+        //println!("After round_key = {:x?}", self.msg);
     }
 
     pub fn sub_s_box(&mut self) {
-        //for i in &mut self.msg.iter() {
-        //    // for rows in self.msg
-        //    for mut j in &mut i.iter() {
-        //        j = &S_BOX[*j as usize];
-        //    }
-        //}
+        for (i, item) in self.msg.clone().iter().enumerate() {
+            // for rows in self.msg
+            for (j, item) in item.iter().enumerate() {
+                mem::replace(&mut self.msg[i][j], S_BOX[*item as usize]);
+            }
+        }
         //*self = M_matrix::new();
-        unimplemented!();
+        //unimplemented!();
     }
 }
 
@@ -305,7 +306,7 @@ impl From<M_row> for M_matrix {
         let mut counter = 0;
         while counter < 16 {
             arr[counter / 4][counter % 4] = m.0[counter];
-            println!("m[{}] = {}", counter, m.0[counter]);
+            //println!("m[{}] = {}", counter, m.0[counter]);
             counter += 1;
         }
         M_matrix::new_with_u8(&arr)

@@ -2,6 +2,7 @@ mod lib;
 mod tests;
 
 use lib::{basic_operations::*, key_msg::*};
+use std::convert::TryInto;
 
 fn main() {
     let mut k: [u8; 16] = [
@@ -21,4 +22,12 @@ fn main() {
     let mut m: M_matrix = M_row::new(&msg).into();
 
     m.add_round_key(&Key::from(Vec::from(&round_keys[0..4])));
+
+    for i in 0..9 {
+        m.sub_s_box();
+        m.shitf_rows();
+        m.mix_col();
+        m.add_round_key(&Key::from(Vec::from(&round_keys[4 * (i + 1)..4 * (i + 2)])));
+        println!("Round {}, m = {:x?}", i, m);
+    }
 }
