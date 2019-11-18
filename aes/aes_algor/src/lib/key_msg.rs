@@ -2,6 +2,7 @@ extern crate rand;
 
 use crate::lib::basic_operations::*;
 use rand::prelude::*;
+use std::convert::TryInto;
 use std::ops::{Add, Mul, Sub};
 
 pub const MIX_COL: [[u8; 4]; 4] = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
@@ -24,6 +25,8 @@ impl Key {
         Key(arr.clone())
     }
 
+    // Each Word in origin key is regard as BIG endian
+    // Words is regard as LITTLE endian
     pub fn expansion(&self) -> Vec<u32> {
         // implement the default case with key is 128bits
         let mut v: Vec<u32> = Vec::new();
@@ -73,7 +76,16 @@ impl Key {
     pub fn from(arr: Vec<u32>) -> Self {
         // to be discuss the order of the key and round_keys
         assert_eq!(arr.len(), 4);
-        unimplemented!();
+        println!("arr = {:08x?}", arr);
+
+        let t: Vec<[u8; 4]> = arr.iter().map(|x| x.to_be_bytes()).collect();
+        println!("t = {:?}", t);
+        let t: [[u8; 4]; 4] = t.as_slice()[..]
+            .try_into()
+            .expect("Failed to convert because of length");
+
+        let r: M_row = M_matrix::new_with_u8(&t).into();
+        Self(r.0)
     }
 }
 
@@ -248,6 +260,7 @@ impl M_matrix {
     pub fn msg(&self) -> [[u8; 4]; 4] {
         self.msg.clone()
     }
+
     pub fn add_round_key(&mut self, round_key: &Key) {
         // Key is [u8; 16]
         println!("M_matrix = {:x?}", self.msg);
@@ -258,6 +271,17 @@ impl M_matrix {
         }
 
         println!("After round_key = {:x?}", self.msg);
+    }
+
+    pub fn sub_s_box(&mut self) {
+        //for i in &mut self.msg.iter() {
+        //    // for rows in self.msg
+        //    for mut j in &mut i.iter() {
+        //        j = &S_BOX[*j as usize];
+        //    }
+        //}
+        //*self = M_matrix::new();
+        unimplemented!();
     }
 }
 
