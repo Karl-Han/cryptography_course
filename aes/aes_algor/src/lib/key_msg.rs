@@ -1,6 +1,9 @@
 extern crate rand;
 
-use crate::lib::basic_operations::{self, s_box, S_BOX};
+use crate::lib::{
+    basic_operations::{self, s_box, S_BOX, S_BOX_INV},
+    encrypt::{DECRYPT, ENCRYPT},
+};
 use rand::prelude::*;
 use std::convert::TryInto;
 use std::mem;
@@ -98,6 +101,7 @@ impl Key {
 //}
 
 // Start to think about the necessity of M_row
+#[derive(Debug)]
 pub struct M_row([u8; 16]);
 
 impl M_row {
@@ -116,6 +120,10 @@ impl M_row {
         for (i, item) in self.0.clone().iter().enumerate() {
             self.0[i] = S_BOX[(*item as usize)];
         }
+    }
+
+    pub fn msg(&self) -> [u8; 16] {
+        self.0
     }
 }
 
@@ -242,10 +250,10 @@ impl M_matrix {
         Self { msg: msg.clone() }
     }
 
-    pub fn shitf_rows(&mut self) {
+    pub fn shitf_rows(&mut self, bias: usize) {
         //println!("matrix before shift:{:?}", self.msg);
         for i in 1..self.msg.len() {
-            M_matrix::shift_row(&mut self.msg[i], i);
+            M_matrix::shift_row(&mut self.msg[i], i + bias);
         }
         //println!("matrix after shift:{:?}", self.msg);
     }
@@ -288,15 +296,37 @@ impl M_matrix {
         //println!("After round_key = {:x?}", self.msg);
     }
 
-    pub fn sub_s_box(&mut self) {
-        for (i, item) in self.msg.clone().iter().enumerate() {
-            // for rows in self.msg
-            for (j, item) in item.iter().enumerate() {
-                mem::replace(&mut self.msg[i][j], S_BOX[*item as usize]);
+    pub fn sub_s_box(&mut self, mode: usize) {
+        if mode == ENCRYPT {
+            for (i, item) in self.msg.clone().iter().enumerate() {
+                // for rows in self.msg
+                for (j, item) in item.iter().enumerate() {
+                    mem::replace(&mut self.msg[i][j], S_BOX[*item as usize]);
+                }
+            }
+        } else {
+            for (i, item) in self.msg.clone().iter().enumerate() {
+                // for rows in self.msg
+                for (j, item) in item.iter().enumerate() {
+                    mem::replace(&mut self.msg[i][j], S_BOX_INV[*item as usize]);
+                }
             }
         }
-        //*self = M_matrix::new();
-        //unimplemented!();
+    }
+
+    pub fn transpose(&mut self) {
+        let mut temp = M_matrix::new();
+        println!("self before transpose = {:02x?}", self.msg());
+
+        for (i, item) in self.msg.iter().enumerate() {
+            // get every row in self
+            for (j, item) in item.iter().enumerate() {
+                temp.msg[j][i] = *item;
+            }
+        }
+
+        *self = temp;
+        println!("self after transpose = {:02x?}", self.msg());
     }
 }
 

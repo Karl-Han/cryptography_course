@@ -1,4 +1,4 @@
-use super::*;
+use crate::lib::{basic_operations::*, decrypt::*, encrypt::*, key_msg::*};
 
 #[test]
 fn s_box_test() {
@@ -11,16 +11,26 @@ fn s_box_test() {
 }
 
 #[test]
-fn matrix_multiplication_test() {
-    let mut n = M_matrix::new_with_u8(&[[1, 2, 3, 4], [5, 6, 7, 8], [1, 3, 2, 4], [5, 7, 6, 8]]);
-    n.mix_col();
+fn encrypt_test() {
+    // refer to example in P193
+    let mut k: [u8; 16] = [
+        0x0f, 0x15, 0x71, 0xc9, 0x47, 0xd9, 0xe8, 0x59, 0x0c, 0xb7, 0xad, 0xd6, 0xaf, 0x7f, 0x67,
+        0x98,
+    ];
+    let mut msg: [u8; 16] = [
+        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32,
+        0x10,
+    ];
+    let k = Key::new(&k);
+
+    let res = encrypt(M_row::new(&msg), k);
+
     assert_eq!(
-        n,
-        M_matrix::new_with_u8(&[
-            [23, 32, 35, 44],
-            [19, 30, 29, 40],
-            [23, 35, 32, 44],
-            [19, 29, 30, 40]
-        ])
-    );
+        res.msg(),
+        [
+            0xff, 0x0b, 0x84, 0x4a, 0x08, 0x53, 0xbf, 0x7c, 0x69, 0x34, 0xab, 0x43, 0x64, 0x14,
+            0x8f, 0xb9
+        ]
+    )
+    //println!("res = {:02x?}", res);
 }
