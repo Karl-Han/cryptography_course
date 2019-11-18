@@ -2,7 +2,7 @@ extern crate rand;
 
 use crate::lib::{
     basic_operations::{self, s_box, S_BOX, S_BOX_INV},
-    encrypt::{DECRYPT, ENCRYPT},
+    enc_decrypt::{DECRYPT, ENCRYPT},
 };
 use rand::prelude::*;
 use std::convert::TryInto;
@@ -11,6 +11,13 @@ use std::ops::{Add, Mul, Sub};
 
 pub const MIX_COL: [[u8; 4]; 4] = [[2, 3, 1, 1], [1, 2, 3, 1], [1, 1, 2, 3], [3, 1, 1, 2]];
 pub const MIX_COL_TRANS: [[u8; 4]; 4] = [[2, 1, 1, 3], [3, 2, 1, 1], [1, 3, 2, 1], [1, 1, 3, 2]];
+
+pub const MIX_COL_INV: [[u8; 4]; 4] = [
+    [0x0E, 0x0B, 0x0D, 0x09],
+    [0x09, 0x0E, 0x0B, 0x0D],
+    [0x0D, 0x09, 0x0E, 0x0B],
+    [0x0B, 0x0D, 0x09, 0x0E],
+];
 
 pub const RC: [u8; 10] = [1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
 
@@ -194,7 +201,7 @@ impl Mul for M_matrix {
         assert_eq!(len_row, rhs.msg[0].len());
 
         //for m in 0..len_col {
-        //    println!("{:?}", rhs.msg[m][1]);
+        //    //println!("{:?}", rhs.msg[m][1]);
         //}
 
         for k in 0..len_col {
@@ -250,10 +257,16 @@ impl M_matrix {
         Self { msg: msg.clone() }
     }
 
-    pub fn shitf_rows(&mut self, bias: usize) {
+    pub fn shift_rows(&mut self, mode: usize) {
         //println!("matrix before shift:{:?}", self.msg);
-        for i in 1..self.msg.len() {
-            M_matrix::shift_row(&mut self.msg[i], i + bias);
+        if mode == ENCRYPT {
+            for i in 1..self.msg.len() {
+                M_matrix::shift_row(&mut self.msg[i], i);
+            }
+        } else {
+            for i in 1..self.msg.len() {
+                M_matrix::shift_row(&mut self.msg[i], 4 - i);
+            }
         }
         //println!("matrix after shift:{:?}", self.msg);
     }
@@ -268,9 +281,13 @@ impl M_matrix {
         //println!("After shift = {:x?}", row);
     }
 
-    pub fn mix_col(&mut self) {
+    pub fn mix_col(&mut self, mode: usize) {
         let temp = self.clone();
-        *self = M_matrix::new_with_u8(&MIX_COL) * temp;
+        if mode == ENCRYPT {
+            *self = M_matrix::new_with_u8(&MIX_COL) * temp;
+        } else {
+            *self = M_matrix::new_with_u8(&MIX_COL_INV) * temp;
+        }
     }
 
     pub fn msg(&self) -> [[u8; 4]; 4] {
@@ -280,7 +297,7 @@ impl M_matrix {
     pub fn add_round_key(&mut self, round_key: &Key) {
         // Key is [u8; 16]
         //println!("M_matrix = {:x?}", self.msg);
-        println!("Key = {:02x?}", round_key.0);
+        //println!("Key = {:02x?}", round_key.0);
 
         // it needs to be the transpose of key
         // because its order is different
@@ -316,7 +333,7 @@ impl M_matrix {
 
     pub fn transpose(&mut self) {
         let mut temp = M_matrix::new();
-        println!("self before transpose = {:02x?}", self.msg());
+        //println!("self before transpose = {:02x?}", self.msg());
 
         for (i, item) in self.msg.iter().enumerate() {
             // get every row in self
@@ -326,7 +343,7 @@ impl M_matrix {
         }
 
         *self = temp;
-        println!("self after transpose = {:02x?}", self.msg());
+        //println!("self after transpose = {:02x?}", self.msg());
     }
 }
 
