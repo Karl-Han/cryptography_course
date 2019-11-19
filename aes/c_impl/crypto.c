@@ -1,17 +1,18 @@
 #include "crypto.h"
+#include <assert.h>
 
 // typedef unsigned char short;
 // typedef unsigned char* short*;
 
 short gf28_mod(short* num) {
-    *num = (*num + 283 % 283);
+    *num = (*num + 283) % 283;
     return *num;
 }
 
 void swap(short* n1, short* n2) {
-    *n1 = *n1 ^ *n2;
-    *n2 = *n1 ^ *n2;
-    *n1 = *n1 ^ *n2;
+    short temp = *n1;
+    *n1 = *n2;
+    *n2 = temp;
 }
 
 short multiply(short a, short b, short xor_num) {
@@ -59,19 +60,8 @@ bool divide(short a, short b, short* quotient, short* remainder) {
     }
     *quotient = q;
     *remainder = a;
+    assert(multiply(*quotient, b, 0x1b) ^ *remainder == 0x1b);
     return t == (multiply(b, *quotient, 0x1b) ^ *remainder);
-}
-
-short inverse_gf28(short a) {
-    short b = 0x11b;
-    short s, t;
-    if (a > b) {
-        egcd(&a, &b, &s, &t);
-        return s;
-    } else {
-        egcd(&b, &a, &s, &t);
-        return t;
-    }
 }
 
 // Return gcd(a, b)
@@ -94,6 +84,13 @@ short egcd(short* a, short* b, short* s, short* t) {
     *s = s1;
     *t = s2;
     return *a;
+}
+
+short inverse_gf28(short a) {
+    short b = 0x11b;
+    short s, t;
+    egcd(&b, &a, &s, &t);
+    return t;
 }
 
 short s_box(short num) {
