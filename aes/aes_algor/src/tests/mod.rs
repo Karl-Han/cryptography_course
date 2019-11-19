@@ -1,4 +1,4 @@
-use crate::lib::{basic_operations::*, enc_decrypt::*, key_msg::*};
+use crate::lib::{basic_operations::*, key_msg::*, Algor::*};
 
 #[test]
 fn s_box_test() {
@@ -23,7 +23,7 @@ fn encrypt_test() {
     ];
     let k = Key::new(&k);
 
-    let res = encrypt(M_row::new(&msg), k);
+    let res = M_row::new(&msg).encrypt(k);
 
     assert_eq!(
         res.msg(),
@@ -48,7 +48,7 @@ fn decrypt_test() {
     ];
     let k = Key::new(&k);
 
-    let res = decrypt(M_row::new(&msg), k);
+    let res = M_row::new(&msg).decrypt(k);
 
     assert_eq!(
         res.msg(),

@@ -2,7 +2,7 @@ extern crate rand;
 
 use crate::lib::{
     basic_operations::{self, s_box, S_BOX, S_BOX_INV},
-    enc_decrypt::{DECRYPT, ENCRYPT},
+    Algor::Enc_Dec,
 };
 use rand::prelude::*;
 use std::convert::TryInto;
@@ -20,6 +20,8 @@ pub const MIX_COL_INV: [[u8; 4]; 4] = [
 ];
 
 pub const RC: [u8; 10] = [1, 2, 4, 8, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+pub const ENCRYPT: usize = 0;
+pub const DECRYPT: usize = 2;
 
 #[derive(Debug)]
 pub struct Key([u8; 16]);
@@ -110,6 +112,70 @@ impl Key {
 // Start to think about the necessity of M_row
 #[derive(Debug)]
 pub struct M_row([u8; 16]);
+
+impl Enc_Dec for M_row {
+    fn encrypt(self, key: Key) -> Self {
+        let mut m: M_matrix = self.into();
+        let round_keys = key.expansion();
+
+        //println!("Init m = {:02x?}", m);
+        m.add_round_key(&Key::from(Vec::from(&round_keys[0..4])));
+        //println!("Round0, m = {:02x?}", m);
+
+        for i in 0..9 {
+            m.sub_s_box(ENCRYPT);
+            //println!("Round {}, After sub_s_box m = {:02x?}", i, m);
+            m.shift_rows(ENCRYPT);
+            //println!("Round {}, After shift_row m = {:02x?}", i, m);
+            m.mix_col(ENCRYPT);
+            //println!("Round {}, After mix_col m = {:02x?}", i, m);
+            m.add_round_key(&Key::from(Vec::from(&round_keys[4 * (i + 1)..4 * (i + 2)])));
+            //println!("Round {}, After add round_key m = {:02x?}\n", i, m);
+        }
+
+        // the last round
+        m.sub_s_box(ENCRYPT);
+        m.shift_rows(ENCRYPT);
+        m.add_round_key(&Key::from(round_keys[40..44].to_vec()));
+        //println!("Encrypt result = {:02x?}", m);
+        m.transpose();
+
+        let res: M_row = m.into();
+        res
+    }
+
+    fn decrypt(self, key: Key) -> Self {
+        // m is now cipher text
+        let mut m: M_matrix = self.into();
+        let round_keys = key.expansion();
+
+        //println!("Init m = {:02x?}", m);
+        m.add_round_key(&Key::from(Vec::from(&round_keys[40..44])));
+        //println!("Round0, m = {:02x?}", m);
+
+        for reverse in 0..9 {
+            let i = 8 - reverse;
+            m.shift_rows(DECRYPT);
+            //println!("Round {}, After inverse shift_row m = {:02x?}", i, m);
+            m.sub_s_box(DECRYPT);
+            //println!("Round {}, After inverse sub_s_box m = {:02x?}", i, m);
+            m.add_round_key(&Key::from(Vec::from(&round_keys[4 * (i + 1)..4 * (i + 2)])));
+            //println!("Round {}, After add inverse round_key m = {:02x?}\n", i, m);
+            m.mix_col(DECRYPT);
+            //println!("Round {}, After inverse mix_col m = {:02x?}", i, m);
+        }
+
+        // the last round
+        m.sub_s_box(DECRYPT);
+        m.shift_rows(DECRYPT);
+        m.add_round_key(&Key::from(round_keys[0..4].to_vec()));
+        //println!("Decrypt result = {:02x?}", m);
+        m.transpose();
+
+        let res: M_row = m.into();
+        res
+    }
+}
 
 impl M_row {
     pub fn new(msg: &[u8; 16]) -> M_row {
