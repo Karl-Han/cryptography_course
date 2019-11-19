@@ -2,7 +2,8 @@ extern crate rand;
 
 use crate::lib::{
     basic_operations::{self, s_box, S_BOX, S_BOX_INV},
-    Algor::Enc_Dec,
+    op_modes::ECB_mode,
+    Algor::EncDec,
 };
 use rand::prelude::*;
 use std::convert::TryInto;
@@ -26,17 +27,20 @@ pub const DECRYPT: usize = 2;
 #[derive(Debug)]
 pub struct Key([u8; 16]);
 
-//impl From<[u32; 4]> for Key {
-//    fn from(u: [u32; 4]) -> Self {
-//        // to be discuss the order of key and round_keys
-//        unimplemented!();
-//    }
-//}
-
 // Key is used to expand
 impl Key {
     pub fn new(arr: &[u8; 16]) -> Key {
         Key(arr.clone())
+    }
+
+    pub fn new_random() -> Key {
+        let mut rng = rand::thread_rng();
+
+        let mut arr = [0u8; 16];
+        rng.fill_bytes(&mut arr);
+        println!("Key = {:02x?}", arr);
+
+        Key(arr)
     }
 
     // Each Word in origin key is regard as BIG endian
@@ -101,6 +105,10 @@ impl Key {
         let r: M_row = M_matrix::new_with_u8(&t).into();
         Self(r.0)
     }
+
+    pub fn msg(&self) -> [u8; 16] {
+        self.0.clone()
+    }
 }
 
 //To be improved
@@ -113,8 +121,12 @@ impl Key {
 #[derive(Debug)]
 pub struct M_row([u8; 16]);
 
-impl Enc_Dec for M_row {
-    fn encrypt(self, key: Key) -> Self {
+impl EncDec for M_row {
+    fn new(s: [u8; 16]) -> M_row {
+        M_row::new(s)
+    }
+
+    fn encrypt(self, key: &Key) -> [u8; 16] {
         let mut m: M_matrix = self.into();
         let round_keys = key.expansion();
 
@@ -141,10 +153,10 @@ impl Enc_Dec for M_row {
         m.transpose();
 
         let res: M_row = m.into();
-        res
+        res.0
     }
 
-    fn decrypt(self, key: Key) -> Self {
+    fn decrypt(self, key: &Key) -> [u8; 16] {
         // m is now cipher text
         let mut m: M_matrix = self.into();
         let round_keys = key.expansion();
@@ -173,13 +185,17 @@ impl Enc_Dec for M_row {
         m.transpose();
 
         let res: M_row = m.into();
-        res
+        res.0
+    }
+
+    fn msg(&self) -> [u8; 16] {
+        self.0.clone()
     }
 }
 
 impl M_row {
-    pub fn new(msg: &[u8; 16]) -> M_row {
-        M_row(msg.clone())
+    pub fn new(msg: [u8; 16]) -> M_row {
+        M_row(msg)
     }
     // it is a very wasteful way to do this
     // To be deprecated
@@ -198,6 +214,10 @@ impl M_row {
     pub fn msg(&self) -> [u8; 16] {
         self.0
     }
+}
+
+impl ECB_mode for M_row {
+    type T = M_row;
 }
 
 trait Matrix {
@@ -423,14 +443,14 @@ impl From<M_matrix> for M_row {
                 counter += 1;
             }
         }
-        M_row::new(&arr)
+        M_row::new(arr)
     }
 }
 
 impl From<M_row> for M_matrix {
     fn from(m: M_row) -> Self {
         let mut arr = [[0u8; 4]; 4];
-        let mut counter = 0;
+        //let mut counter = 0;
         //while counter < 16 {
         //    arr[counter / 4][counter % 4] = m.0[counter];
         //    //println!("m[{}] = {}", counter, m.0[counter]);

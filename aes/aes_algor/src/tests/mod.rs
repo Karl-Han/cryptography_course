@@ -23,10 +23,10 @@ fn encrypt_test() {
     ];
     let k = Key::new(&k);
 
-    let res = M_row::new(&msg).encrypt(k);
+    let res = M_row::new(msg).encrypt(&k);
 
     assert_eq!(
-        res.msg(),
+        res,
         [
             0xff, 0x0b, 0x84, 0x4a, 0x08, 0x53, 0xbf, 0x7c, 0x69, 0x34, 0xab, 0x43, 0x64, 0x14,
             0x8f, 0xb9
@@ -48,10 +48,10 @@ fn decrypt_test() {
     ];
     let k = Key::new(&k);
 
-    let res = M_row::new(&msg).decrypt(k);
+    let res = M_row::new(msg).decrypt(&k);
 
     assert_eq!(
-        res.msg(),
+        res,
         [
             0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
             0x32, 0x10,

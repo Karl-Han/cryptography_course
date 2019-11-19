@@ -1,8 +1,12 @@
 use crate::lib::key_msg::Key;
 
-pub trait Enc_Dec {
-    fn encrypt(self, k: Key) -> Self;
-    fn decrypt(self, k: Key) -> Self;
+pub trait EncDec {
+    fn new(s: [u8; 16]) -> Self;
+
+    fn encrypt(self, k: &Key) -> [u8; 16];
+    fn decrypt(self, k: &Key) -> [u8; 16];
+
+    fn msg(&self) -> [u8; 16];
 }
 
 pub trait Encrypt {
