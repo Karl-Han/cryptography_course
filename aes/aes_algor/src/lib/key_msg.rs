@@ -2,7 +2,7 @@ extern crate rand;
 
 use crate::lib::{
     basic_operations::{self, s_box, S_BOX, S_BOX_INV},
-    op_modes::{CTR_mode, ECB_mode},
+    op_modes::{CBC_mode, CTR_mode, ECB_mode},
     Algor::EncDec,
 };
 use rand::prelude::*;
@@ -221,6 +221,10 @@ impl ECB_mode for M_row {
 }
 
 impl CTR_mode for M_row {
+    type T = M_row;
+}
+
+impl CBC_mode for M_row {
     type T = M_row;
 }
 

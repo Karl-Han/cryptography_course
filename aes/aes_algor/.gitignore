@@ -4,3 +4,4 @@ test.cipher
 test.plain
 Makefile
 nounce
+iv
