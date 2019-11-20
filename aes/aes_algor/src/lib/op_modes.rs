@@ -333,9 +333,18 @@ pub trait CBC_mode {
         let mut output = File::create(output).expect("Error while opening output file");
         let mut iv = iv.to_le_bytes();
         let mut buf = [0u8; 16];
+        let mut buf_next = [0u8; 16];
         let mut counter = 0;
+        let mut out = [0u8; 16];
 
-        while let Ok(res) = input.read(&mut buf) {
+        let res = input.read(&mut buf_next);
+        if let Ok(_) = res {
+            buf = buf_next;
+        } else {
+            panic!("ERROR, file is broken with wrong length");
+        }
+
+        while let Ok(res) = input.read(&mut buf_next) {
             if res == 16 {
                 // the whole block
                 //let a = Self::T::new(nounce.to_le_bytes());
@@ -344,33 +353,32 @@ pub trait CBC_mode {
                 //output.write(&out);
                 //buf = buf_next;
                 let a = Self::T::new(buf.clone());
-                let out = xor(iv, &a.decrypt(&key));
+                out = xor(iv, &a.decrypt(&key));
                 output.write(&out);
                 iv = buf;
+                buf = buf_next;
                 counter += 1;
             } else if res == 0 {
                 // now buf store the length of the last segment
                 println!("last buf = {:02x?}", buf);
+                println!("last iv = {:02x?}", iv);
                 println!("counter = {}, {} bytes total", counter, counter * 16);
-                //let a = Self::T::new(nounce.to_le_bytes());
-                //nounce += 1;
-                //let out = xor(a.encrypt(&key), &buf);
                 let a = Self::T::new(buf.clone());
                 let out = xor(iv, &a.decrypt(&key));
                 output.write(&out);
                 //iv = buf;
                 println!("out = {:02x?}", out);
-                //let last_length = u64::from_le_bytes(
-                //    out[..8]
-                //        .try_into()
-                //        .expect("Wrong length in the last length"),
-                //);
-                //println!("last_length = {}", last_length);
-                //let total_length = (counter - 1) * 16 + last_length;
-                //println!("total length = {}", total_length);
-                //output
-                //    .set_len(total_length)
-                //    .expect("Error when set length of file");
+                let last_length = u64::from_le_bytes(
+                    out[..8]
+                        .try_into()
+                        .expect("Wrong length in the last length"),
+                );
+                println!("last_length = {}", last_length);
+                let total_length = (counter - 1) * 16 + last_length;
+                println!("total length = {}", total_length);
+                output
+                    .set_len(total_length)
+                    .expect("Error when set length of file");
                 break;
             } else {
                 panic!("ERROR, file is broken with wrong length");
