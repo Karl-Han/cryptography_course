@@ -89,8 +89,10 @@ impl PrimePair {
         return self.q.clone();
     }
     pub fn from_p_q(p: BigInt, q: BigInt) -> Self {
-        assert!(miller_rabin(&p, 50));
-        assert!(miller_rabin(&q, 50));
+        //dbg!(&p);
+        //dbg!(&q);
+        //assert!(miller_rabin(&p, 50));
+        //assert!(miller_rabin(&q, 50));
         PrimePair { p, q }
     }
 }
