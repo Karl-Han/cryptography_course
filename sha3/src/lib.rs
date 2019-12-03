@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 use std::fmt::Display;
-use std::io::{Read, Cursor};
+use std::io::{Cursor, Read};
 
 /*
  * Sponge = absorb + f + squeeze        Top level
@@ -184,25 +184,34 @@ impl KeccakState {
     }
 
     // update and do keccak with reader
-    pub fn update(&mut self, reader: &mut dyn Read) {
+    pub fn update(&mut self, data: &[u8]) {
         let mut flag = true;
-        let mut buf = [0u8; 200];
-        while let Ok(bytes_read) = reader.read(&mut buf) {
-            dbg!(bytes_read);
-            if bytes_read != 0 || flag {
-                if bytes_read < 200 {
-                    self.padding(&mut buf, bytes_read);
-                    let array = Self::h2s(buf);
-                    self.buf.xor(array);
+        let mut offset = 0;
+        let length = data.len();
+
+        while offset <= length {
+            let mut to_hash = [0u8; 200];
+            let len = length - offset;
+            if len != 0 || flag {
+                if len < self.rate {
+                    if len != 0 {
+                        to_hash[..len].copy_from_slice(&data[offset..][..len]);
+                    }
+                    self.padding(&mut to_hash, len);
+                } else {
+                    to_hash[..136].copy_from_slice(&data[offset..offset + self.rate]);
                 }
+                let array = Self::h2s(to_hash);
+                self.buf.xor(array);
 
                 // all is now 200 bytes now
                 self.buf.keccak(24);
-                println!("update state buf to {}", self.buf);
+            //println!("update state buf to {}", self.buf);
             } else {
                 break;
             }
             flag = false;
+            offset += self.rate;
         }
     }
 
@@ -222,8 +231,8 @@ impl KeccakState {
 pub trait Hasher {
     fn hash_file(&mut self, filename: String);
     fn hash_str(&mut self, s: &str);
-    fn hash(&mut self, buf : &[u8]);
-    fn finalize(&mut self, output : &mut [u8]);
+    fn hash(&mut self, buf: &[u8]);
+    fn finalize(&mut self, output: &mut [u8]);
 }
 
 pub struct Keccakf {
@@ -243,17 +252,17 @@ impl Hasher for Keccakf {
     }
 
     fn hash(&mut self, buf: &[u8]) {
-        self.state.update(&mut Cursor::new(buf));
+        self.state.update(buf);
         println!("hash_str: state buf = {}", self.state.buf);
         println!("rate = {}", self.state.rate);
     }
 
-    fn finalize(&mut self, output : &mut [u8]){
+    fn finalize(&mut self, output: &mut [u8]) {
         assert!(output.len() < self.state.rate);
         let bytes_to_read = self.state.capacity / 2 / 8;
 
         for i in 0..bytes_to_read {
-            output[i * 8..(i +1) * 8].copy_from_slice(&self.state.buf.buf[i].to_le_bytes());
+            output[i * 8..(i + 1) * 8].copy_from_slice(&self.state.buf.buf[i].to_le_bytes());
         }
         // Old version
         //output.copy_from_slice(&self.state.buf.buf[..output.len()].as_bytes());
