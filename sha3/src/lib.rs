@@ -62,10 +62,6 @@ impl Buffer {
         Buffer { buf: [0u64; 25] }
     }
 
-    // used to absorb a new buffer
-    // padding and other things done by upper
-    pub fn absorb(&mut self, new_buf: [u64; 24]) {}
-
     // actually the f works
     pub fn keccak(&mut self, round: u8) {
         // assume buf is already the state
@@ -73,7 +69,7 @@ impl Buffer {
         // totally do round
         for i in 0..round {
             // every sheet(same y,z share the same sheet)
-            let mut array: [u64; 5] = [0; 5];
+            let mut array= [0u64; 5];
 
             //println!("buf before THETA : {}", self);
             // THETA operation
@@ -128,12 +124,7 @@ impl Buffer {
         }
     }
 
-    // squeeze out the same as buf
-    pub fn squeeze(&mut self) -> [u64; 24] {
-        [0u64; 24]
-    }
-
-    pub fn xor(&mut self, buf: [u64; 24]) {
+    pub fn xor(&mut self, buf: &[u64; 24]) {
         for i in 0..24 {
             self.buf[i] ^= buf[i];
         }
@@ -169,17 +160,20 @@ impl KeccakState {
     }
 
     // function that transform hex to state string
-    pub fn h2s(buf: [u8; 200]) -> [u64; 24] {
-        let mut array = [0u64; 24];
+    pub fn h2s<'a>(buf:&'a [u8; 200]) -> &'a[u64; 24] {
+        //let mut array = [0u64; 24];
 
-        for i in 0..24 {
-            array[i] = u64::from_le_bytes(
-                buf[i * 8..(i + 1) * 8]
-                    .try_into()
-                    .expect("h2s: [u8] to u64"),
-            );
-        }
+        //for i in 0..24 {
+        //    array[i] = u64::from_le_bytes(
+        //        buf[i * 8..(i + 1) * 8]
+        //            .try_into()
+        //            .expect("h2s: [u8] to u64"),
+        //    );
+        //}
 
+        //array
+        //
+        let array : &'a[u64; 24] = unsafe{std::mem::transmute(buf)};
         array
     }
 
@@ -195,18 +189,18 @@ impl KeccakState {
             if len != 0 || flag {
                 if len < self.rate {
                     if len != 0 {
-                        to_hash[..len].copy_from_slice(&data[offset..][..len]);
+                        to_hash[..len].copy_from_slice(&data[offset..offset + len]);
                     }
                     self.padding(&mut to_hash, len);
                 } else {
                     to_hash[..136].copy_from_slice(&data[offset..offset + self.rate]);
                 }
-                let array = Self::h2s(to_hash);
+                let array = Self::h2s(&to_hash);
                 self.buf.xor(array);
 
                 // all is now 200 bytes now
                 self.buf.keccak(24);
-            //println!("update state buf to {}", self.buf);
+                //println!("update state buf to {}", self.buf);
             } else {
                 break;
             }
