@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 bitvec = "0.16.0"
+bencher = "0.1.5"

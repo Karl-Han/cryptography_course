@@ -9,9 +9,11 @@ fn bool_to_i32() {
 #[test]
 fn empty_str() {
     let expect = [0xa7, 0xff, 0xc6, 0xf8, 0xbf, 0x1e, 0xd7, 0x66, 0x51, 0xc1, 0x47, 0x56, 0xa0, 0x61, 0xd6, 0x62, 0xf5, 0x80, 0xff, 0x4d, 0xe4, 0x3b, 0x49, 0xfa, 0x82, 0xd8, 0x0a, 0x4b, 0x80, 0xf8, 0x43, 0x4a];
-    let mut vec = Vec::new();
-    Keccakf::new_v256().hash_str("", &mut vec);
+    let mut buf = [0u8; 32];
+    let mut keccak = Keccakf::new_v256();
+    keccak.hash_str("");
+    keccak.finalize(&mut buf);
 
-    assert_eq!(vec.len(), expect.len());
-    assert_eq!(vec.as_slice(), expect);
+    assert_eq!(buf.len(), expect.len());
+    assert_eq!(buf, expect);
 }

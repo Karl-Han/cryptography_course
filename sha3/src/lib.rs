@@ -1,6 +1,16 @@
 use std::convert::TryInto;
 use std::fmt::Display;
-use std::io::Read;
+use std::io::{Read, Cursor};
+
+/*
+ * Sponge = absorb + f + squeeze        Top level
+ *
+ * absorb is a procedure that mix `s` and `msg`
+ *
+ * f is a function that mix result of the absorb
+ *
+ * squeeze is to output abitrary
+ */
 
 const RHO: [u32; 25] = [
     0, 1, 62, 28, 27, 36, 44, 6, 55, 20, 3, 10, 43, 25, 39, 41, 45, 15, 21, 8, 18, 2, 61, 56, 14,
@@ -33,8 +43,17 @@ const RC: [u64; 24] = [
     0x8000000080008008u64,
 ];
 
+/*
+ * There are a few questiones that are needed to answer
+ * 1. How to decide where should one function should be in? Just
+ *      like absorb and squeeze
+ * 2. How to improve the quality and speed of coding?
+ *
+ *
+ */
+
 #[derive(Default, Debug)]
-struct Buffer {
+pub struct Buffer {
     buf: [u64; 25],
 }
 
@@ -170,7 +189,7 @@ impl KeccakState {
         let mut buf = [0u8; 200];
         while let Ok(bytes_read) = reader.read(&mut buf) {
             dbg!(bytes_read);
-            if bytes_read != 0 || flag{
+            if bytes_read != 0 || flag {
                 if bytes_read < 200 {
                     self.padding(&mut buf, bytes_read);
                     let array = Self::h2s(buf);
@@ -180,8 +199,7 @@ impl KeccakState {
                 // all is now 200 bytes now
                 self.buf.keccak(24);
                 println!("update state buf to {}", self.buf);
-            }
-            else{
+            } else {
                 break;
             }
             flag = false;
@@ -202,8 +220,10 @@ impl KeccakState {
 }
 
 pub trait Hasher {
-    fn hash_file(&mut self, filename: String, buf: &mut Vec<u8>);
-    fn hash_str(&mut self, s: &str, buf: &mut Vec<u8>);
+    fn hash_file(&mut self, filename: String);
+    fn hash_str(&mut self, s: &str);
+    fn hash(&mut self, buf : &[u8]);
+    fn finalize(&mut self, output : &mut [u8]);
 }
 
 pub struct Keccakf {
@@ -212,28 +232,41 @@ pub struct Keccakf {
 
 impl Hasher for Keccakf {
     // implement hasher trait
-    fn hash_file(&mut self, filename: String, buf: &mut Vec<u8>) {
-        assert!(buf.len() < self.state.rate);
+    fn hash_file(&mut self, filename: String) {
+        unimplemented!();
     }
 
-    fn hash_str(&mut self, s: &str, buf: &mut Vec<u8>) {
-        assert!(buf.len() < self.state.rate);
-
+    fn hash_str(&mut self, s: &str) {
         self.state.update(&mut s.as_bytes());
         println!("hash_str: state buf = {}", self.state.buf);
         println!("rate = {}", self.state.rate);
+    }
+
+    fn hash(&mut self, buf: &[u8]) {
+        self.state.update(&mut Cursor::new(buf));
+        println!("hash_str: state buf = {}", self.state.buf);
+        println!("rate = {}", self.state.rate);
+    }
+
+    fn finalize(&mut self, output : &mut [u8]){
+        assert!(output.len() < self.state.rate);
         let bytes_to_read = self.state.capacity / 2 / 8;
 
         for i in 0..bytes_to_read {
-            //buf[i * 8..(i +1) * 8] = self.state.buf[i].to_le_bytes().try_into().expect("hash_str state.buf to buf");
-            let bytes = self.state.buf.buf[i].to_le_bytes();
-            for j in 0..8 {
-                buf.push(bytes[j]);
-            }
+            output[i * 8..(i +1) * 8].copy_from_slice(&self.state.buf.buf[i].to_le_bytes());
         }
+        // Old version
+        //output.copy_from_slice(&self.state.buf.buf[..output.len()].as_bytes());
+
+        //for i in 0..bytes_to_read {
+        //    //buf[i * 8..(i +1) * 8] = self.state.buf[i].to_le_bytes().try_into().expect("hash_str state.buf to buf");
+        //    let bytes = self.state.buf.buf[i].to_le_bytes();
+        //    for j in 0..8 {
+        //        buf.push(bytes[j]);
+        //    }
+        //}
     }
 }
-
 impl Keccakf {
     pub fn bit2rate(bits: usize) -> usize {
         200 - bits / 4

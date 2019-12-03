@@ -1,5 +1,8 @@
+#![feature(test)]
+
 mod lib;
 mod tests;
+mod benches;
 
 use lib::{Hasher, Keccakf};
 
@@ -20,10 +23,10 @@ fn rho() {
 }
 
 fn main() {
-    let mut buf = Vec::new();
-    let mut keccakf = Keccakf::new_v256();
-    keccakf.hash_str("", &mut buf);
+    let mut buf = [0u8; 16];
+    let mut keccakf = Keccakf::new_v128();
+    keccakf.hash_str("");
+    keccakf.finalize(&mut buf);
 
-    assert_eq!(buf.len(), 32);
     println!("{:02x?}", buf);
 }
