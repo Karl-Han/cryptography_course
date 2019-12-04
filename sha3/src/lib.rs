@@ -1,6 +1,6 @@
-use std::convert::TryInto;
 use std::fmt::Display;
-use std::io::{Cursor, Read};
+use std::io::Read;
+use std::fs::File;
 
 /*
  * Sponge = absorb + f + squeeze        Top level
@@ -62,10 +62,6 @@ impl Buffer {
         Buffer { buf: [0u64; 25] }
     }
 
-    // used to absorb a new buffer
-    // padding and other things done by upper
-    pub fn absorb(&mut self, new_buf: [u64; 24]) {}
-
     // actually the f works
     pub fn keccak(&mut self, round: u8) {
         // assume buf is already the state
@@ -73,7 +69,7 @@ impl Buffer {
         // totally do round
         for i in 0..round {
             // every sheet(same y,z share the same sheet)
-            let mut array: [u64; 5] = [0; 5];
+            let mut array = [0u64; 5];
 
             //println!("buf before THETA : {}", self);
             // THETA operation
@@ -128,12 +124,7 @@ impl Buffer {
         }
     }
 
-    // squeeze out the same as buf
-    pub fn squeeze(&mut self) -> [u64; 24] {
-        [0u64; 24]
-    }
-
-    pub fn xor(&mut self, buf: [u64; 24]) {
+    pub fn xor(&mut self, buf: &[u64; 24]) {
         for i in 0..24 {
             self.buf[i] ^= buf[i];
         }
@@ -153,8 +144,9 @@ struct KeccakState {
     buf: Buffer,
     rate: usize,
     capacity: usize,
-    offset: usize,
+    offset : u8,
     delim: u8,
+    round : u8,
 }
 
 impl KeccakState {
@@ -165,20 +157,23 @@ impl KeccakState {
             capacity,
             offset: 0,
             delim,
+            round : 1,
         }
     }
 
     // function that transform hex to state string
-    pub fn h2s(buf: [u8; 200]) -> [u64; 24] {
-        let mut array = [0u64; 24];
+    pub fn h2s<'a>(buf: &'a [u8; 200]) -> &'a [u64; 24] {
+    //pub fn h2s(buf: &[u8; 200]) -> [u64; 24] {
+        let array: &'a [u64; 24] = unsafe { std::mem::transmute(buf) };
 
-        for i in 0..24 {
-            array[i] = u64::from_le_bytes(
-                buf[i * 8..(i + 1) * 8]
-                    .try_into()
-                    .expect("h2s: [u8] to u64"),
-            );
-        }
+        //let mut array = [0u64; 24];
+        //for i in 0..24 {
+        //    array[i] = u64::from_le_bytes(
+        //        buf[i * 8..(i + 1) * 8]
+        //            .try_into()
+        //            .expect("h2s: [u8] to u64"),
+        //    );
+        //}
 
         array
     }
@@ -195,14 +190,14 @@ impl KeccakState {
             if len != 0 || flag {
                 if len < self.rate {
                     if len != 0 {
-                        to_hash[..len].copy_from_slice(&data[offset..][..len]);
+                        to_hash[..len].copy_from_slice(&data[offset..offset + len]);
                     }
                     self.padding(&mut to_hash, len);
                 } else {
-                    to_hash[..136].copy_from_slice(&data[offset..offset + self.rate]);
+                    to_hash[..self.rate].copy_from_slice(&data[offset..offset + self.rate]);
                 }
-                let array = Self::h2s(to_hash);
-                self.buf.xor(array);
+                let array = Self::h2s(&to_hash);
+                self.buf.xor(&array);
 
                 // all is now 200 bytes now
                 self.buf.keccak(24);
@@ -216,8 +211,24 @@ impl KeccakState {
     }
 
     // get the digest with `length`
-    pub fn result(&mut self, length: usize) -> Vec<u8> {
-        Vec::new()
+    // result is a u8 vector with vec.len == length
+    pub fn result(&mut self, length: usize) -> Vec<u64> {
+        let mut vec = Vec::new();
+        let mut counter = 0;
+
+        while counter < length{
+            let buf = &self.buf.buf;
+            vec.extend_from_slice(buf);
+
+            self.buf.keccak(self.round);
+
+            counter += self.rate;
+        }
+
+        vec.resize(length / 8, 0);
+        assert_eq!(vec.len(), length / 8);
+
+        vec
     }
 
     // do padding with the existing state
@@ -242,38 +253,34 @@ pub struct Keccakf {
 impl Hasher for Keccakf {
     // implement hasher trait
     fn hash_file(&mut self, filename: String) {
-        unimplemented!();
+        let mut f = File::open(filename).expect("Unable to open file");
+
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf);
+
+        self.hash(&buf);
     }
 
     fn hash_str(&mut self, s: &str) {
         self.state.update(&mut s.as_bytes());
-        println!("hash_str: state buf = {}", self.state.buf);
-        println!("rate = {}", self.state.rate);
+        //println!("hash_str: state buf = {}", self.state.buf);
+        //println!("rate = {}", self.state.rate);
     }
 
     fn hash(&mut self, buf: &[u8]) {
         self.state.update(buf);
-        println!("hash_str: state buf = {}", self.state.buf);
-        println!("rate = {}", self.state.rate);
+        //println!("hash_str: state buf = {}", self.state.buf);
+        //println!("rate = {}", self.state.rate);
     }
 
     fn finalize(&mut self, output: &mut [u8]) {
-        assert!(output.len() < self.state.rate);
+        assert!(output.len() <= self.state.rate);
         let bytes_to_read = self.state.capacity / 2 / 8;
+        let buf = &self.state.buf.buf;
 
         for i in 0..bytes_to_read {
-            output[i * 8..(i + 1) * 8].copy_from_slice(&self.state.buf.buf[i].to_le_bytes());
+            output[i * 8..(i + 1) * 8].copy_from_slice(&buf[i].to_le_bytes());
         }
-        // Old version
-        //output.copy_from_slice(&self.state.buf.buf[..output.len()].as_bytes());
-
-        //for i in 0..bytes_to_read {
-        //    //buf[i * 8..(i +1) * 8] = self.state.buf[i].to_le_bytes().try_into().expect("hash_str state.buf to buf");
-        //    let bytes = self.state.buf.buf[i].to_le_bytes();
-        //    for j in 0..8 {
-        //        buf.push(bytes[j]);
-        //    }
-        //}
     }
 }
 impl Keccakf {
