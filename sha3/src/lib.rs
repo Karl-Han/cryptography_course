@@ -69,7 +69,7 @@ impl Buffer {
         // totally do round
         for i in 0..round {
             // every sheet(same y,z share the same sheet)
-            let mut array= [0u64; 5];
+            let mut array = [0u64; 5];
 
             //println!("buf before THETA : {}", self);
             // THETA operation
@@ -144,8 +144,9 @@ struct KeccakState {
     buf: Buffer,
     rate: usize,
     capacity: usize,
-    offset: usize,
+    offset : u8,
     delim: u8,
+    round : u8,
 }
 
 impl KeccakState {
@@ -156,13 +157,16 @@ impl KeccakState {
             capacity,
             offset: 0,
             delim,
+            round : 1,
         }
     }
 
     // function that transform hex to state string
-    pub fn h2s<'a>(buf:&'a [u8; 200]) -> &'a[u64; 24] {
-        //let mut array = [0u64; 24];
+    pub fn h2s<'a>(buf: &'a [u8; 200]) -> &'a [u64; 24] {
+    //pub fn h2s(buf: &[u8; 200]) -> [u64; 24] {
+        let array: &'a [u64; 24] = unsafe { std::mem::transmute(buf) };
 
+        //let mut array = [0u64; 24];
         //for i in 0..24 {
         //    array[i] = u64::from_le_bytes(
         //        buf[i * 8..(i + 1) * 8]
@@ -171,9 +175,6 @@ impl KeccakState {
         //    );
         //}
 
-        //array
-        //
-        let array : &'a[u64; 24] = unsafe{std::mem::transmute(buf)};
         array
     }
 
@@ -196,11 +197,11 @@ impl KeccakState {
                     to_hash[..136].copy_from_slice(&data[offset..offset + self.rate]);
                 }
                 let array = Self::h2s(&to_hash);
-                self.buf.xor(array);
+                self.buf.xor(&array);
 
                 // all is now 200 bytes now
                 self.buf.keccak(24);
-                //println!("update state buf to {}", self.buf);
+            //println!("update state buf to {}", self.buf);
             } else {
                 break;
             }
@@ -210,8 +211,24 @@ impl KeccakState {
     }
 
     // get the digest with `length`
-    pub fn result(&mut self, length: usize) -> Vec<u8> {
-        Vec::new()
+    // result is a u8 vector with vec.len == length
+    pub fn result(&mut self, length: usize) -> Vec<u64> {
+        let mut vec = Vec::new();
+        let mut counter = 0;
+
+        while counter < length{
+            let buf = &self.buf.buf;
+            vec.extend_from_slice(buf);
+
+            self.buf.keccak(self.round);
+
+            counter += self.rate;
+        }
+
+        vec.resize(length / 8, 0);
+        assert_eq!(vec.len(), length / 8);
+
+        vec
     }
 
     // do padding with the existing state
@@ -241,33 +258,24 @@ impl Hasher for Keccakf {
 
     fn hash_str(&mut self, s: &str) {
         self.state.update(&mut s.as_bytes());
-        println!("hash_str: state buf = {}", self.state.buf);
-        println!("rate = {}", self.state.rate);
+        //println!("hash_str: state buf = {}", self.state.buf);
+        //println!("rate = {}", self.state.rate);
     }
 
     fn hash(&mut self, buf: &[u8]) {
         self.state.update(buf);
-        println!("hash_str: state buf = {}", self.state.buf);
-        println!("rate = {}", self.state.rate);
+        //println!("hash_str: state buf = {}", self.state.buf);
+        //println!("rate = {}", self.state.rate);
     }
 
     fn finalize(&mut self, output: &mut [u8]) {
-        assert!(output.len() < self.state.rate);
+        assert!(output.len() <= self.state.rate);
         let bytes_to_read = self.state.capacity / 2 / 8;
+        let buf = &self.state.buf.buf;
 
         for i in 0..bytes_to_read {
-            output[i * 8..(i + 1) * 8].copy_from_slice(&self.state.buf.buf[i].to_le_bytes());
+            output[i * 8..(i + 1) * 8].copy_from_slice(&buf[i].to_le_bytes());
         }
-        // Old version
-        //output.copy_from_slice(&self.state.buf.buf[..output.len()].as_bytes());
-
-        //for i in 0..bytes_to_read {
-        //    //buf[i * 8..(i +1) * 8] = self.state.buf[i].to_le_bytes().try_into().expect("hash_str state.buf to buf");
-        //    let bytes = self.state.buf.buf[i].to_le_bytes();
-        //    for j in 0..8 {
-        //        buf.push(bytes[j]);
-        //    }
-        //}
     }
 }
 impl Keccakf {

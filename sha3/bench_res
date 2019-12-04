@@ -44,3 +44,21 @@ test benches::keccak_bench::keccakf_u64                       ... bench:       1
 
 test result: ok. 0 passed; 0 failed; 2 ignored; 3 measured; 0 filtered out
 
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+commit: cc2418b 
+<<<<<<
+
+running 6 tests
+test tests::bool_to_i32 ... ignored
+test tests::l0_test ... ignored
+test tests::l1600_test ... ignored
+test benches::keccak_bench::bench_keccak256                   ... bench:       1,312 ns/iter (+/- 253) = 24 MB/s
+test benches::keccak_bench::bench_keccak_256_input_4096_bytes ... bench:      33,072 ns/iter (+/- 1,387) = 123 MB/s
+test benches::keccak_bench::keccakf_u64                       ... bench:       1,062 ns/iter (+/- 36) = 188 MB/s
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 3 measured; 0 filtered out
+
