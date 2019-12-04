@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate clap;
 extern crate num_bigint;
 extern crate sha3;
@@ -49,98 +50,8 @@ fn store_pu(pu: PublicKey) -> Result<(), io::Error> {
 }
 
 fn argument_parse() -> io::Result<()> {
-    //let yml = load_yaml!("../cli.yml");
-    //let matches = App::from(yml).get_matches();
-    //dbg!(&matches);
-    let matches = App::new("RSA in Rust")
-        .subcommand(
-            SubCommand::with_name("encrypt")
-                .arg(Arg::with_name("auth").short("a").long("auth"))
-                .arg(Arg::with_name("new").long("new").help("Use new key pair"))
-                .arg(
-                    Arg::with_name("e-key")
-                        .short("e")
-                        .long("e-key")
-                        .takes_value(true)
-                        .help("Exp part of public key"),
-                )
-                .arg(
-                    Arg::with_name("n-key")
-                        .short("n")
-                        .long("n-key")
-                        .takes_value(true)
-                        .help("Modulus part of the public key"),
-                )
-                .arg(
-                    Arg::with_name("text")
-                        .short("t")
-                        .long("text")
-                        .takes_value(true)
-                        .help("Text to be encrypt"),
-                )
-                .arg(
-                    Arg::with_name("filename")
-                        .short("f")
-                        .long("filename")
-                        .takes_value(true)
-                        .help("File contains plaintext to encrypt"),
-                )
-                .arg(
-                    Arg::with_name("key_size")
-                        .short("l")
-                        .long("key-length")
-                        .takes_value(true)
-                        .help("Specify the length of key"),
-                )
-                .arg(
-                    Arg::with_name("output")
-                        .short("o")
-                        .long("output")
-                        .takes_value(true)
-                        .help("Redirect cipher to output file"),
-                ),
-        )
-        .subcommand(
-            SubCommand::with_name("decrypt")
-                .arg(Arg::with_name("sign").short("s").long("sign"))
-                .arg(Arg::with_name("utf-8").long("utf-8"))
-                .arg(
-                    Arg::with_name("d-key")
-                        .short("d")
-                        .long("d-key")
-                        .takes_value(true)
-                        .help("Exp part of private key"),
-                )
-                .arg(
-                    Arg::with_name("n-key")
-                        .short("n")
-                        .long("n-key")
-                        .takes_value(true)
-                        .help("Modulus part of the private key"),
-                )
-                .arg(
-                    Arg::with_name("cipher")
-                        .short("c")
-                        .long("cipher")
-                        .takes_value(true)
-                        .help("Cipher to be decrypt"),
-                )
-                .arg(
-                    Arg::with_name("filename")
-                        .short("f")
-                        .long("filename")
-                        .takes_value(true)
-                        .help("File contains cipher to decrypt"),
-                )
-                .arg(
-                    Arg::with_name("output")
-                        .short("o")
-                        .long("output")
-                        .takes_value(true)
-                        .help("Redirect cipher to output file"),
-                ),
-        )
-        .get_matches();
+    let yml = load_yaml!("../cli.yml");
+    let matches = App::from(yml).get_matches();
 
     match matches.subcommand() {
         ("encrypt", Some(sub_matches)) => {
@@ -159,8 +70,8 @@ fn argument_parse() -> io::Result<()> {
                 return Ok(());
             }
             // read e and n from file
-            let e_file_path = sub_matches.value_of("e-key").unwrap();
-            let n_file_path = sub_matches.value_of("n-key").unwrap();
+            let e_file_path = sub_matches.value_of("e_key").unwrap();
+            let n_file_path = sub_matches.value_of("n_key").unwrap();
 
             let mut e_file =
                 File::open(e_file_path).expect("Please use `--e-key` to specify the e");
@@ -225,8 +136,8 @@ fn argument_parse() -> io::Result<()> {
             Ok(())
         }
         ("decrypt", Some(sub_matches)) => {
-            let d_file_path = sub_matches.value_of("d-key").unwrap();
-            let n_file_path = sub_matches.value_of("n-key").unwrap();
+            let d_file_path = sub_matches.value_of("d_key").unwrap();
+            let n_file_path = sub_matches.value_of("n_key").unwrap();
 
             let mut d_file = File::open(d_file_path)?;
             let mut n_file = File::open(n_file_path)?;
@@ -305,7 +216,8 @@ fn argument_parse() -> io::Result<()> {
 }
 
 fn main() {
-    //argument_parse().expect("Error when parsing arguments, please use `--help`.");
+
+    argument_parse().expect("Error when parsing arguments, please use `--help`.");
     //let n = BigInt::from_str("3351434899016066636045491452890486808714908934340001357148989")
     //    .expect("Unable to parse string");
     //let sqrt_n = n.clone().sqrt();
@@ -318,8 +230,9 @@ fn main() {
     //    counter = counter + 1;
     //}
     //println!("A prime is {}", counter);
-    let a = Ratio::new(1u32, 1u32);
-    let b = Ratio::new(2u32, 1u32);
 
-    println!("{}", a - b);
+    //let a = Ratio::new(1u32, 1u32);
+    //let b = Ratio::new(2u32, 1u32);
+
+    //println!("{}", a - b);
 }
