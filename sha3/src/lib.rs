@@ -1,6 +1,6 @@
-use std::convert::TryInto;
 use std::fmt::Display;
-use std::io::{Cursor, Read};
+use std::io::Read;
+use std::fs::File;
 
 /*
  * Sponge = absorb + f + squeeze        Top level
@@ -194,7 +194,7 @@ impl KeccakState {
                     }
                     self.padding(&mut to_hash, len);
                 } else {
-                    to_hash[..136].copy_from_slice(&data[offset..offset + self.rate]);
+                    to_hash[..self.rate].copy_from_slice(&data[offset..offset + self.rate]);
                 }
                 let array = Self::h2s(&to_hash);
                 self.buf.xor(&array);
@@ -253,7 +253,12 @@ pub struct Keccakf {
 impl Hasher for Keccakf {
     // implement hasher trait
     fn hash_file(&mut self, filename: String) {
-        unimplemented!();
+        let mut f = File::open(filename).expect("Unable to open file");
+
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf);
+
+        self.hash(&buf);
     }
 
     fn hash_str(&mut self, s: &str) {

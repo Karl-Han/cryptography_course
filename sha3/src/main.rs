@@ -25,7 +25,8 @@ fn rho() {
 fn main() {
     let mut buf = [0u8; 16];
     let mut keccakf = Keccakf::new_v128();
-    keccakf.hash_str("");
+    let filename = String::from("flac.rar");
+    keccakf.hash_file(filename);
     keccakf.finalize(&mut buf);
 
     println!("{:02x?}", buf);

@@ -1,4 +1,6 @@
-use super::*;
+use rand::{thread_rng, RngCore};
+use tiny_keccak::{Sha3, Hasher};
+use crate::{Keccakf, Hasher as hasher};
 
 #[test]
 fn bool_to_i32() {
@@ -32,4 +34,42 @@ fn l1600_test() {
 
     assert_eq!(buf.len(), expect.len());
     assert_eq!(buf, expect);
+}
+
+#[test]
+fn random_test(){
+    let mut buf = [0u8; 512];
+    let mut rng = thread_rng();
+    let mut output_tiny = [0u8; 32];
+    let mut output = [0u8; 32];
+
+    rng.fill_bytes(&mut buf);
+    println!("buf = {:02x?}", &buf[..32]);
+
+    let mut tiny_keccak = Sha3::v256();
+    tiny_keccak.update(&buf);
+    tiny_keccak.finalize(&mut output_tiny);
+
+    let mut keccak = Keccakf::new_v256();
+    keccak.hash(&buf);
+    keccak.finalize(&mut output);
+
+    assert_eq!(output_tiny, output);
+    println!("output = {:02x?}", output);
+}
+
+#[test]
+fn specific_str_test(){
+    let mut sha3 = Sha3::v256();
+    let input_a = b"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ";
+    let mut output_tiny = [0u8; 32];
+    let mut output = [0u8; 32];
+    sha3.update(input_a);
+    sha3.finalize(&mut output_tiny);
+
+    let mut keccak = Keccakf::new_v256();
+    keccak.hash(input_a);
+    keccak.finalize(&mut output);
+
+    assert_eq!(output, output_tiny);
 }
